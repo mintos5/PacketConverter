@@ -27,3 +27,7 @@
 *.exe
 *.out
 *.app
+
+# ClionProjects files and debug folder
+.idea/*
+debug/*

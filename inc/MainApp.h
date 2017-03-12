@@ -8,6 +8,8 @@
 
 
 class MainApp {
+public:
+    static bool running;
 
 
 };

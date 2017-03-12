@@ -1,0 +1,14 @@
+//
+// Created by root on 11.3.2017.
+//
+
+#ifndef PACKETCONVERTER_DEVICESTABLE_H
+#define PACKETCONVERTER_DEVICESTABLE_H
+
+
+class DevicesTable {
+
+};
+
+
+#endif //PACKETCONVERTER_DEVICESTABLE_H

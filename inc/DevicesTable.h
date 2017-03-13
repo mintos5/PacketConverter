@@ -6,7 +6,12 @@
 #define PACKETCONVERTER_DEVICESTABLE_H
 
 
+#include "json.hpp"
+
 class DevicesTable {
+    nlohmann::json normalConfig;
+    nlohmann::json emerConfig;
+    nlohmann::json regConfig;
 
 };
 

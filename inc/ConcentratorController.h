@@ -11,12 +11,18 @@
 #include <thread>
 #include <mutex>
 #include "Message.h"
+#include <loragw_hal.h>
+#include <condition_variable>
 
 
 class ConnectionController;
 
 class ConcentratorController {
-    uint64_t gatewayId;
+    nlohmann::json localConfig;
+    struct lgw_conf_board_s boardconf;
+    struct lgw_conf_rxrf_s rfconf;
+    struct lgw_conf_rxif_s ifconf;
+    struct lgw_tx_gain_lut_s txlut;
 
     std::shared_ptr<ConnectionController> connection;
 
@@ -27,20 +33,22 @@ class ConcentratorController {
 
     void send();
     void receive();
+    int startConcentrator(Message param);
 
 public:
     std::thread fiberReceive;
     std::thread fiberSend;
+    std::condition_variable sendConditional;
     std::queue<Message> serverData;
     std::mutex queueMutex;
 
     int start();
     void join();
     void stop();
-
     void call();
-    void addToQueue();
+    void addToQueue(Message message);
 
+    ConcentratorController(Message config);
     void setConnection(const std::shared_ptr<ConnectionController> &connection);
 
 

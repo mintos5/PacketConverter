@@ -23,8 +23,9 @@ class ConnectionController {
     SSL *ssl;
     SSL_CTX *ctx;
     const std::string caCert = "/etc/ssl/certs/ca-certificates.crt";
-    const std::string hostname = "localhost:12345";
+    std::string hostname = "localhost:12345";
     const int buffSize = 2048;
+    uint64_t gatewayId;
 
     std::shared_ptr<ConcentratorController> concentrator;
 
@@ -45,8 +46,9 @@ public:
     void join();
     void stop();
     void call();
-    void addToQueue();
+    void addToQueue(Message message);
 
+    ConnectionController(Message config);
     void setConcentrator(const std::shared_ptr<ConcentratorController> &concentrator);
 
 };

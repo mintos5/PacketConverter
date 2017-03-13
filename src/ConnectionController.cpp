@@ -1,11 +1,18 @@
 //
 // Created by root on 11.3.2017.
 //
-
 #include <iostream>
 #include <sstream>
-#include <json.hpp>
+#include <csignal>
 #include "ConnectionController.h"
+#include "ConcentratorController.h"
+
+ConnectionController::ConnectionController(Message config) {
+    //std::cout << config.message["conf"]["server_address"].dump() << std::endl;
+    nlohmann::json confSection = config.message.at("conf");
+    this->hostname = confSection["server_address"].get<std::string>();
+    this->gatewayId = confSection["gateway_ID"];
+}
 
 void ConnectionController::setConcentrator(const std::shared_ptr<ConcentratorController> &concentrator) {
     ConnectionController::concentrator = concentrator;
@@ -66,11 +73,12 @@ void ConnectionController::join() {
 }
 
 void ConnectionController::send() {
+    std::lock_guard<std::mutex> guard1(this->queueMutex);
     this->sendNum++;
     std::stringstream ss;
     ss << "GET" << this->sendNum;
     std::string request = ss.str();
-    //TODO check for messages
+    //TODO check for messages in queue
     if (this->sendNum<4){
         while(BIO_write(bio, request.c_str(), request.size()) <= 0) {
             if(! BIO_should_retry(bio))
@@ -88,6 +96,7 @@ void ConnectionController::process() {
     std::string out;
     fd_set fds;
     timeval readTimeout;
+    bool connectionDown = false;
 
     processMutex.lock();
     while(processRun){
@@ -109,6 +118,7 @@ void ConnectionController::process() {
         std::cout << "readReturn is:" << readReturn << std::endl;
         if(readReturn == 0){
             std::cerr << "Error reading from SSL socket" << std::endl;
+            connectionDown = true;
             break;
         }
         else if (readReturn<0){
@@ -131,16 +141,24 @@ void ConnectionController::process() {
             stream << std::string(buffData);
 
             out = stream.str();
-            nlohmann::json test = nlohmann::json::parse(out);
-            std::cout << test.dump(4) << std::endl;
+            concentrator->addToQueue(Message::fromStiot(out));
             //clear stream for other messages
             stream.str(std::string());
         }
+        processMutex.lock();
     }
-
+    processMutex.unlock();
+    if (connectionDown){
+        raise(SIGINT);
+    }
 }
 
 void ConnectionController::stop() {
     std::lock_guard<std::mutex> guard1(this->processMutex);
     this->processRun = false;
+}
+
+void ConnectionController::addToQueue(Message message) {
+    std::lock_guard<std::mutex> guard1(this->queueMutex);
+    this->endDeviceData.push(message);
 }

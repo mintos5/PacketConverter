@@ -24,8 +24,9 @@ void signalHandler(int signum) {
     std::cout << "Interrupt signal (" << signum << ") received." << std::endl;
     std::cout << "Closing application" << std::endl;
     MainApp::running = false;
-    concentrator->stop();
     connection->stop();
+    concentrator->stop();
+    //concentrator->join();   //wait to end...
 }
 
 int main(int argc, char *argv[]){
@@ -46,24 +47,29 @@ int main(int argc, char *argv[]){
         }
     }
     using json = nlohmann::json;
-    std::ifstream input("json.txt");
+    std::ifstream input("config.json");
     std::stringstream sstr;
     while(input >> sstr.rdbuf());
-    std::string testSPolu = sstr.str();
-        json test = json::parse(sstr.str());
-        std::cout << test.dump(4) << std::endl;
-        if (test.find("SETR") != test.end()) {
-            std::cout << "Nasiel som ta" << std::endl;
-        }
-    concentrator = std::make_shared<ConcentratorController>();
-    connection = std::make_shared<ConnectionController>();
+    std::string config = sstr.str();
+    Message localConfigMessage = Message::fromStiot(config);
+    std::cout << localConfigMessage.message.dump(2) << std::endl;
+    concentrator = std::make_shared<ConcentratorController>(localConfigMessage);
+    connection = std::make_shared<ConnectionController>(localConfigMessage);
     concentrator->setConnection(connection);
     connection->setConcentrator(concentrator);
 
-    //concentrator->start();
-    connection->start();
-    //concentrator->join();
-    connection->join();
+    if (concentrator->start()<0){
+        std::cerr << "Problem starting concentrator" << std::endl;
+        return 0;
+    }
+    if (connection->start()<0){
+        std::cerr << "Problem starting network communication" << std::endl;
+        //signalHandler(2);
+        concentrator->join();
+    }
+    else {
+        connection->join();
+    }
 }
 
 bool MainApp::running;

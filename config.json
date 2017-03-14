@@ -2,8 +2,15 @@
 	"conf": {
 		"lorawan_public": true,
 		"clksrc": 1,
-		"radio_0": "SX1257",
-		"radio_1": "SX1257",
+		"radio_0": {
+			"type": "SX1257",
+			"tx_enable": true
+		},
+		"radio_1": {
+			"type": "SX1257",
+			"tx_enable": true
+		},
+		"if_chain": 5,
 		"rssi_offset": -166.0,
 		"server_address": "localhost:12345",
 		"gateway_ID": 1

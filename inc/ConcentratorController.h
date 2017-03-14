@@ -11,18 +11,23 @@
 #include <thread>
 #include <mutex>
 #include "Message.h"
-#include <loragw_hal.h>
+#include "DevicesTable.h"
 #include <condition_variable>
+extern "C" {
+#include "loragw_hal.h"
+#include "loragw_aux.h"
+}
+#define NB_PKT_MAX		8 /* max number of packets per fetch/send cycle */
 
 
 class ConnectionController;
 
 class ConcentratorController {
     nlohmann::json localConfig;
+    int ifChainCount;
     struct lgw_conf_board_s boardconf;
-    struct lgw_conf_rxrf_s rfconf;
-    struct lgw_conf_rxif_s ifconf;
     struct lgw_tx_gain_lut_s txlut;
+    const int fetchSleepMs = 10;
 
     std::shared_ptr<ConnectionController> connection;
 
@@ -30,17 +35,19 @@ class ConcentratorController {
     std::mutex sendMutex;
     bool receiveRun = true;
     std::mutex receiveMutex;
+    std::thread fiberReceive;
+    std::thread fiberSend;
+    std::condition_variable sendConditional;
+    std::queue<Message> serverData;
+    std::mutex queueMutex;
+    DevicesTable devicesTable;
 
     void send();
     void receive();
     int startConcentrator(Message param);
 
 public:
-    std::thread fiberReceive;
-    std::thread fiberSend;
-    std::condition_variable sendConditional;
-    std::queue<Message> serverData;
-    std::mutex queueMutex;
+
 
     int start();
     void join();

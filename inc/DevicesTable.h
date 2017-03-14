@@ -9,6 +9,7 @@
 #include "json.hpp"
 
 class DevicesTable {
+public:
     nlohmann::json normalConfig;
     nlohmann::json emerConfig;
     nlohmann::json regConfig;

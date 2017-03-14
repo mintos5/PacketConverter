@@ -26,7 +26,6 @@ void signalHandler(int signum) {
     MainApp::running = false;
     connection->stop();
     concentrator->stop();
-    //concentrator->join();   //wait to end...
 }
 
 int main(int argc, char *argv[]){
@@ -60,15 +59,16 @@ int main(int argc, char *argv[]){
 
     if (concentrator->start()<0){
         std::cerr << "Problem starting concentrator" << std::endl;
-        return 0;
+        return -1;
     }
     if (connection->start()<0){
         std::cerr << "Problem starting network communication" << std::endl;
-        //signalHandler(2);
+        //signalHandler(SIGINT);
         concentrator->join();
     }
     else {
         connection->join();
+        concentrator->join();
     }
 }
 

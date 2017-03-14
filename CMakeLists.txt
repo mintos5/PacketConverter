@@ -10,8 +10,8 @@ SET( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}" )
 #LibLoRa library
 set ( LIBLORAGW_LIB libloragw.a )
 link_directories( ../lora_gateway/libloragw)
-include_directories(inc)
 include_directories(../lora_gateway/libloragw/inc)
+include_directories(inc)
 
 #OpenSSL library (in Ubuntu you need libssl-dev)
 find_package(OpenSSL REQUIRED)
@@ -21,5 +21,5 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 set(SOURCES src/MainApp.cpp src/ConcentratorController.cpp inc/ConcentratorController.h src/ConnectionController.cpp inc/ConnectionController.h src/Message.cpp inc/Message.h src/DevicesTable.cpp inc/DevicesTable.h)
 
 add_executable(packet_converter ${SOURCES})
-target_link_libraries(packet_converter ${OPENSSL_LIBRARIES} ${LIBLORAGW_LIB})
+target_link_libraries(packet_converter ${LIBLORAGW_LIB} ${OPENSSL_LIBRARIES})
 install(TARGETS packet_converter DESTINATION .)

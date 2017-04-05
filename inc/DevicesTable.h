@@ -7,12 +7,16 @@
 
 
 #include "json.hpp"
+extern "C" {
+#include "loragw_hal.h"
+}
 
 class DevicesTable {
 public:
     nlohmann::json normalConfig;
     nlohmann::json emerConfig;
     nlohmann::json regConfig;
+    lgw_pkt_tx_s setPacket(std::string deviceId);
 
 };
 

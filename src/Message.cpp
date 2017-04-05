@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <Message.h>
 #include <json.hpp>
+#include <fstream>
 
 
 Message Message::fromStiot(std::string message) {
@@ -34,7 +35,7 @@ Message Message::fromLora(uint8_t *payload, uint16_t size) {
     return Message();
 }
 
-std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char>> Message::toStiot() {
+std::string Message::toStiot() {
     return this->message.dump();
 }
 
@@ -44,4 +45,12 @@ unsigned short Message::writePayload(uint8_t *payload) {
 
 nlohmann::json Message::getData() {
     return this->message.at("message_body");
+}
+
+Message Message::fromFile(std::string file) {
+    std::ifstream input(file.c_str());
+    std::stringstream sstr;
+    while(input >> sstr.rdbuf());
+    std::string seta = sstr.str();
+    return Message::fromStiot(seta);
 }

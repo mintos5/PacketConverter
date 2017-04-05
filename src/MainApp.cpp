@@ -57,10 +57,10 @@ int main(int argc, char *argv[]){
     concentrator->setConnection(connection);
     connection->setConcentrator(concentrator);
 
-    if (concentrator->start()<0){
-        std::cerr << "Problem starting concentrator" << std::endl;
-        return -1;
-    }
+//    if (concentrator->start()<0){
+//        std::cerr << "Problem starting concentrator" << std::endl;
+//        return -1;
+//    }
     if (connection->start()<0){
         std::cerr << "Problem starting network communication" << std::endl;
         //signalHandler(SIGINT);

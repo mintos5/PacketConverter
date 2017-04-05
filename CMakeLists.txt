@@ -18,7 +18,7 @@ find_package(OpenSSL REQUIRED)
 include_directories(${OPENSSL_INCLUDE_DIR})
 
 
-set(SOURCES src/MainApp.cpp src/ConcentratorController.cpp inc/ConcentratorController.h src/ConnectionController.cpp inc/ConnectionController.h src/Message.cpp inc/Message.h src/DevicesTable.cpp inc/DevicesTable.h)
+set(SOURCES src/MainApp.cpp src/ConcentratorController.cpp inc/ConcentratorController.h src/ConnectionController.cpp inc/ConnectionController.h src/Message.cpp inc/Message.h src/DevicesTable.cpp inc/DevicesTable.h src/Encryption.cpp inc/Encryption.h)
 
 add_executable(packet_converter ${SOURCES})
 target_link_libraries(packet_converter ${LIBLORAGW_LIB} ${OPENSSL_LIBRARIES})

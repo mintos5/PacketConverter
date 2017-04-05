@@ -77,9 +77,10 @@ void ConnectionController::send() {
     this->sendNum++;
     std::stringstream ss;
     ss << "GET" << this->sendNum;
-    std::string request = ss.str();
+    Message keys = Message::fromFile("keyr.json");
+    std::string request = keys.toStiot();
     //TODO check for messages in queue
-    if (this->sendNum<4){
+    if (this->sendNum<2){
         while(BIO_write(bio, request.c_str(), request.size()) <= 0) {
             if(! BIO_should_retry(bio))
             {
@@ -104,26 +105,31 @@ void ConnectionController::process() {
 
         send();
 
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-        std::cout << "Sended message, waiting 1 sec" << std::endl;
+        //std::this_thread::sleep_for(std::chrono::seconds(1));
+        //std::cout << "Sended message, waiting 1 sec" << std::endl;
 
 
         char buffData[buffSize];
         int readReturn;
-        while(readReturn = BIO_read(bio, buffData, buffSize-1),readReturn==buffSize-1){
+        bool someData = false;
+        do{
+            readReturn = BIO_read(bio, buffData, buffSize-1);
+            if (readReturn<=0){
+                break;
+            }
             //Received good data
             buffData[readReturn] = 0;
             stream << std::string(buffData);
-        }
-        std::cout << "readReturn is:" << readReturn << std::endl;
+            std::cout << "readReturn is:" << readReturn << std::endl;
+            someData = true;
+        } while(readReturn==buffSize-1);
         if(readReturn == 0){
             std::cerr << "Error reading from SSL socket" << std::endl;
             connectionDown = true;
             break;
         }
-        else if (readReturn<0){
-            if(! BIO_should_retry(bio))
-            {
+        else if (readReturn<0 && !someData){
+            if(! BIO_should_retry(bio)) {
                 /* Handle failed read here */
                 std::cerr << "Error reading from SSL socket,ignoring" << std::endl;
             }
@@ -136,11 +142,9 @@ void ConnectionController::process() {
             printf("Wau %d\n",selectWait);
         }
         else {
-            //Received good data
-            buffData[readReturn] = 0;
-            stream << std::string(buffData);
-
+            //GOOD DATA
             out = stream.str();
+            std::cout << out << std::endl;
             concentrator->addToQueue(Message::fromStiot(out));
             //clear stream for other messages
             stream.str(std::string());

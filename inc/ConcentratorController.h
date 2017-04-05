@@ -23,8 +23,8 @@ extern "C" {
 class ConnectionController;
 
 class ConcentratorController {
-    nlohmann::json localConfig;
     int ifChainCount;
+    nlohmann::json localConfig;
     struct lgw_conf_board_s boardconf;
     struct lgw_tx_gain_lut_s txlut;
     const int fetchSleepMs = 10;
@@ -33,21 +33,24 @@ class ConcentratorController {
 
     bool sendRun = true;
     std::mutex sendMutex;
-    bool receiveRun = true;
+    bool receiveRun = false;
     std::mutex receiveMutex;
+
     std::thread fiberReceive;
     std::thread fiberSend;
+
     std::condition_variable sendConditional;
     std::queue<Message> serverData;
     std::mutex queueMutex;
+
     DevicesTable devicesTable;
 
-    void send();
-    void receive();
+    void processStiot();
+    void receiveHal();
     int startConcentrator(Message param);
+    int sendHal(Message msg);
 
 public:
-
 
     int start();
     void join();

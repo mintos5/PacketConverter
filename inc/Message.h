@@ -23,6 +23,7 @@ public:
     static Message createKEYS();
     static Message createKEYR();
     static Message createERR();
+    static Message fromFile(std::string file);
     std::string toStiot();
     uint16_t writePayload(uint8_t payload[]);
     nlohmann::json getData();

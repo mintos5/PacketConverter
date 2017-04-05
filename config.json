@@ -8,7 +8,7 @@
 		},
 		"radio_1": {
 			"type": "SX1257",
-			"tx_enable": true
+			"tx_enable": false
 		},
 		"if_chain": 5,
 		"rssi_offset": -166.0,

@@ -55,7 +55,6 @@ public:
     int start();
     void join();
     void stop();
-    void call();
     void addToQueue(Message message);
 
     ConcentratorController(Message config);

@@ -41,14 +41,15 @@ int ConnectionController::start() {
     BIO_set_nbio(bio,1);
     //Try to connect
     int connectReturn;
+    int retry = 0;
     while(connectReturn = BIO_do_connect(bio),connectReturn <= 0){
-        if(! BIO_should_retry(bio)){
+        if(!BIO_should_retry(bio) || retry > 6){
             std::cerr << "Error connecting  to server" << std::endl;
             BIO_free_all(bio);
             SSL_CTX_free(ctx);
             return -1;
         }
-        ;
+        ++retry;
     }
     if (BIO_get_fd(bio, &socket) < 0) {
         std::cerr << "Error getting connection fd" << std::endl;
@@ -68,7 +69,7 @@ int ConnectionController::start() {
     return 0;
 }
 
-void ConnectionController::join() {
+void ConnectionController:: join() {
     this->fiberProcess.join();
 }
 

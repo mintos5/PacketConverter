@@ -45,7 +45,6 @@ public:
     int start();
     void join();
     void stop();
-    void call();
     void addToQueue(Message message);
 
     ConnectionController(Message config);

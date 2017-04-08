@@ -5,17 +5,13 @@
 #ifndef PACKETCONVERTER_CONNECTIONCONTROLLER_H
 #define PACKETCONVERTER_CONNECTIONCONTROLLER_H
 
-#include <time.h>
 #include <openssl/ssl.h>
 #include <string>
 #include <queue>
 #include <thread>
 #include <mutex>
-#include "Message.h"
+#include "MessageConverter.h"
 
-
-
-class ConcentratorController;
 
 class ConnectionController {
     int socket;
@@ -27,7 +23,7 @@ class ConnectionController {
     const int buffSize = 65535;
     uint64_t gatewayId;
 
-    std::shared_ptr<ConcentratorController> concentrator;
+    std::shared_ptr<MessageConverter> converter;
 
     int sendNum = 0;
 
@@ -43,12 +39,12 @@ public:
     std::mutex queueMutex;
 
     int start();
+    int startOffline();
     void join();
     void stop();
     void addToQueue(Message message);
 
-    ConnectionController(Message config);
-    void setConcentrator(const std::shared_ptr<ConcentratorController> &concentrator);
+    ConnectionController(const std::shared_ptr<MessageConverter> &converter,Message config);
 
 };
 

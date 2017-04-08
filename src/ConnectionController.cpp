@@ -7,15 +7,13 @@
 #include "ConnectionController.h"
 #include "ConcentratorController.h"
 
-ConnectionController::ConnectionController(Message config) {
+
+ConnectionController::ConnectionController(const std::shared_ptr<MessageConverter> &converter,Message config)
+        : converter(converter) {
     //std::cout << config.message["conf"]["server_address"].dump() << std::endl;
     nlohmann::json confSection = config.message.at("conf");
     this->hostname = confSection["server_address"].get<std::string>();
     this->gatewayId = confSection["gateway_ID"];
-}
-
-void ConnectionController::setConcentrator(const std::shared_ptr<ConcentratorController> &concentrator) {
-    ConnectionController::concentrator = concentrator;
 }
 
 int ConnectionController::start() {
@@ -146,7 +144,7 @@ void ConnectionController::process() {
             //GOOD DATA
             out = stream.str();
             std::cout << out << std::endl;
-            concentrator->addToQueue(Message::fromStiot(out));
+            converter->addToQueue(Message::fromJsonString(out));
             //clear stream for other messages
             stream.str(std::string());
         }

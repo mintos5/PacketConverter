@@ -9,7 +9,8 @@
 
 #include <chrono>
 #include <mutex>
-#include "json.hpp"
+#include <map>
+
 extern "C" {
 #include "loragw_hal.h"
 }
@@ -23,10 +24,8 @@ struct EndDevice{
 
 class DevicesTable {
 public:
-    nlohmann::json normalConfig;
-    nlohmann::json emerConfig;
-    nlohmann::json regConfig;
     lgw_pkt_tx_s setPacket(std::string deviceId);
+    static lgw_pkt_tx_s setTestParams();
 
     std::map<std::string,EndDevice> map;
     static std::mutex mapMutex;

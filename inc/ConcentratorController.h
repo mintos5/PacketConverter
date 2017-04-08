@@ -10,9 +10,8 @@
 #include <queue>
 #include <thread>
 #include <mutex>
-#include "Message.h"
-#include "DevicesTable.h"
 #include <condition_variable>
+#include "MessageConverter.h"
 extern "C" {
 #include "loragw_hal.h"
 #include "loragw_aux.h"
@@ -20,16 +19,17 @@ extern "C" {
 #define NB_PKT_MAX		8 /* max number of packets per fetch/send cycle */
 
 
-class ConnectionController;
-
 class ConcentratorController {
     int ifChainCount;
     nlohmann::json localConfig;
+    nlohmann::json normalConfig;
+    nlohmann::json emerConfig;
+    nlohmann::json regConfig;
     struct lgw_conf_board_s boardconf;
     struct lgw_tx_gain_lut_s txlut;
     const int fetchSleepMs = 10;
 
-    std::shared_ptr<ConnectionController> connection;
+    std::shared_ptr<MessageConverter> converter;
 
     bool sendRun = true;
     std::mutex sendMutex;
@@ -40,25 +40,23 @@ class ConcentratorController {
     std::thread fiberSend;
 
     std::condition_variable sendConditional;
-    std::queue<Message> serverData;
+    std::queue<LoraPacket> serverData;
     std::mutex queueMutex;
-
-    DevicesTable devicesTable;
 
     void processStiot();
     void receiveHal();
     int startConcentrator(Message param);
-    int sendHal(Message msg);
+    int sendHal(LoraPacket msg);
 
 public:
 
     int start();
+    int startOffline();
     void join();
     void stop();
-    void addToQueue(Message message);
+    void addToQueue(LoraPacket message);
 
-    ConcentratorController(Message config);
-    void setConnection(const std::shared_ptr<ConnectionController> &connection);
+    ConcentratorController(const std::shared_ptr<MessageConverter> &converter,Message config);
 
 
 };

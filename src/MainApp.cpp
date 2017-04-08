@@ -9,6 +9,7 @@
 
 std::shared_ptr<ConnectionController> connection;
 std::shared_ptr<ConcentratorController> concentrator;
+std::shared_ptr<MessageConverter> converter;
 
 void usage(){
     using namespace std;
@@ -24,6 +25,7 @@ void signalHandler(int signum) {
     std::cout << "Interrupt signal (" << signum << ") received." << std::endl;
     std::cout << "Closing application" << std::endl;
     MainApp::running = false;
+    converter->stop();
     connection->stop();
     concentrator->stop();
 }
@@ -50,26 +52,36 @@ int main(int argc, char *argv[]){
     std::stringstream sstr;
     while(input >> sstr.rdbuf());
     std::string config = sstr.str();
-    Message localConfigMessage = Message::fromStiot(config);
+    Message localConfigMessage = Message::fromJsonString(config);
     std::cout << localConfigMessage.message.dump(2) << std::endl;
-    concentrator = std::make_shared<ConcentratorController>(localConfigMessage);
-    connection = std::make_shared<ConnectionController>(localConfigMessage);
-    concentrator->setConnection(connection);
-    connection->setConcentrator(concentrator);
+
+    converter = std::make_shared<MessageConverter>();
+
+    concentrator = std::make_shared<ConcentratorController>(converter,localConfigMessage);
+    connection = std::make_shared<ConnectionController>(converter,localConfigMessage);
+
+    converter->setConcentrator(concentrator);
+    converter->setConnection(connection);
+
+    if (converter->start()<0){
+        std::cerr << "Problem starting converter thread" << std::endl;
+        return -1;
+    }
 
 //    if (concentrator->start()<0){
 //        std::cerr << "Problem starting concentrator" << std::endl;
 //        return -1;
 //    }
-    if (connection->start()<0){
-        std::cerr << "Problem starting network communication" << std::endl;
-        //signalHandler(SIGINT);
-        concentrator->join();
-    }
-    else {
-        connection->join();
-        concentrator->join();
-    }
+//    if (connection->start()<0){
+//        std::cerr << "Problem starting network communication" << std::endl;
+//        //signalHandler(SIGINT);
+//        concentrator->join();
+//    }
+//    else {
+//        connection->join();
+//        concentrator->join();
+//    }
+    converter->join();
 }
 
 bool MainApp::running;

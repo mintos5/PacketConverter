@@ -7,14 +7,14 @@
 #include <csignal>
 #include "ConcentratorController.h"
 
-ConcentratorController::ConcentratorController(Message config) {
+ConcentratorController::ConcentratorController(const std::shared_ptr<MessageConverter> &converter,Message config)
+        : converter(converter) {
     nlohmann::json confSection = config.message.at("conf");
     this->localConfig = confSection;
     memset(&boardconf, 0, sizeof boardconf);
     this->boardconf.clksrc = confSection["clksrc"];
     this->boardconf.lorawan_public = confSection["lorawan_public"];
     this->ifChainCount = confSection["if_chain"];
-    //TODO rezim, ci to je osobitny EMERGENCY,alebo nie, ak ano tak sa budu inak odosielat odpovede...
     nlohmann::json txArray = config.message.at("tx_luts");
     memset(&txlut, 0, sizeof txlut);
     int i = 0;
@@ -33,10 +33,6 @@ ConcentratorController::ConcentratorController(Message config) {
     //sendHal(temp);
 }
 
-void ConcentratorController::setConnection(const std::shared_ptr<ConnectionController> &connection) {
-    ConcentratorController::connection = connection;
-}
-
 int ConcentratorController::start() {
     this->fiberSend = std::thread(&ConcentratorController::processStiot,this);
 
@@ -44,7 +40,7 @@ int ConcentratorController::start() {
     std::stringstream sstr;
     while(input >> sstr.rdbuf());
     std::string seta = sstr.str();
-    this->addToQueue(Message::fromStiot(seta));
+    this->startConcentrator(Message::fromJsonString(seta));
 
     return 0;
 }
@@ -68,13 +64,13 @@ int ConcentratorController::startConcentrator(Message param) {
     int multiSFCount = 0;
     for (auto& param1 : params) {
         if (param1.at("type").get<std::string>()=="NORMAL"){
-            this->devicesTable.normalConfig = param1;
+            this->normalConfig = param1;
         }
         if (param1.at("type").get<std::string>()=="EMER"){
-            this->devicesTable.emerConfig = param1;
+            this->emerConfig = param1;
         }
         if (param1.at("type").get<std::string>()=="REG"){
-            this->devicesTable.regConfig = param1;
+            this->regConfig = param1;
         }
         for (auto& freq : param1.at("freqs")) {
             struct lgw_conf_rxif_s temp1;
@@ -234,6 +230,7 @@ void ConcentratorController::stop() {
     this->receiveRun = false;
     this->sendRun = false;
     std::unique_lock<std::mutex> guardQueue(this->queueMutex);
+    guardQueue.unlock();
     sendConditional.notify_one();
 }
 
@@ -291,7 +288,6 @@ void ConcentratorController::receiveHal() {
 }
 
 void ConcentratorController::processStiot() {
-    int halStatus;
 
     sendMutex.lock();
     while (sendRun){
@@ -302,38 +298,18 @@ void ConcentratorController::processStiot() {
             std::cout << "conditionVariable.unlocked" << std::endl;
         }
         while(!serverData.empty()){
-            Message msg = serverData.front();
+            LoraPacket msg = serverData.front();
             serverData.pop();
-            if (msg.type == SETA){
-                //TODO second SETA message after starting concentrator
-                halStatus = startConcentrator(msg);
-                if (halStatus<0){
-                    break;
-                }
-            }
-            else if (msg.type == TXL){
 
-            }
-            else {
-                std::cout << "Some data" << std::endl;
-                std::cout << msg.message.dump(1) << std::endl;
-
-            }
-        }
-        if (halStatus<0){
-            break;
         }
         sendMutex.lock();
-    }
-    if (halStatus<0){
-        raise(SIGINT);
     }
     sendMutex.unlock();
 }
 
-int ConcentratorController::sendHal(Message msg) {
+int ConcentratorController::sendHal(LoraPacket msg) {
     //GETTING SENDING PARAMETERS
-    struct lgw_pkt_tx_s txpkt = this->devicesTable.setPacket("WAU");
+    struct lgw_pkt_tx_s txpkt = DevicesTable::setTestParams();
     //GETTING DATA
     char message[] = "pong";
     std::copy(message,message+4,txpkt.payload);
@@ -356,9 +332,10 @@ int ConcentratorController::sendHal(Message msg) {
     return 0;
 }
 
-void ConcentratorController::addToQueue(Message message) {
+void ConcentratorController::addToQueue(LoraPacket message) {
     std::unique_lock<std::mutex> guard(this->queueMutex);
     this->serverData.push(message);
+    guard.unlock();
     sendConditional.notify_one();
 }
 

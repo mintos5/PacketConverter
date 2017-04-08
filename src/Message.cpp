@@ -8,7 +8,7 @@
 #include <fstream>
 
 
-Message Message::fromStiot(std::string message) {
+Message Message::fromJsonString(std::string message) {
     Message out;
     out.message = nlohmann::json::parse(message);
     if (out.message.find("conf")!= out.message.end()){
@@ -31,7 +31,7 @@ Message Message::fromStiot(std::string message) {
     return out;
 }
 
-Message Message::fromLora(uint8_t *payload, uint16_t size) {
+Message Message::fromLora(LoraPacket in) {
     return Message();
 }
 
@@ -52,5 +52,9 @@ Message Message::fromFile(std::string file) {
     std::stringstream sstr;
     while(input >> sstr.rdbuf());
     std::string seta = sstr.str();
-    return Message::fromStiot(seta);
+    return Message::fromJsonString(seta);
+}
+
+LoraPacket Message::fromStiot(Message in) {
+    return LoraPacket();
 }

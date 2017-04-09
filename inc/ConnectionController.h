@@ -21,7 +21,6 @@ class ConnectionController {
     const std::string caCert = "/etc/ssl/certs/ca-certificates.crt";
     std::string hostname;
     const int buffSize = 65535;
-    uint64_t gatewayId;
 
     std::shared_ptr<MessageConverter> converter;
 
@@ -34,6 +33,7 @@ class ConnectionController {
     std::mutex processMutex;
 
 public:
+    bool connected = false;
     std::thread fiberProcess;
     std::queue<Message> endDeviceData;
     std::mutex queueMutex;
@@ -43,6 +43,7 @@ public:
     void join();
     void stop();
     void addToQueue(Message message);
+    void addBulk(std::vector<Message> vector);
 
     ConnectionController(const std::shared_ptr<MessageConverter> &converter,Message config);
 

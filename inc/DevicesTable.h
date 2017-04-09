@@ -10,6 +10,7 @@
 #include <chrono>
 #include <mutex>
 #include <map>
+#include "Message.h"
 
 extern "C" {
 #include "loragw_hal.h"
@@ -20,6 +21,7 @@ struct EndDevice{
     uint8_t preSharedGenerator;
     uint8_t sessionKey[SESSION_KEY_SIZE];
     std::chrono::milliseconds timer;
+    LoraPacket lastPacket;
 };
 
 class DevicesTable {

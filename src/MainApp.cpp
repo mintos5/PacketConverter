@@ -20,14 +20,18 @@ void usage(){
          << "to STIOT server" << endl;
 }
 
-void signalHandler(int signum) {
-    std::cout << std::endl;
-    std::cout << "Interrupt signal (" << signum << ") received." << std::endl;
-    std::cout << "Closing application" << std::endl;
+void MainApp::shutDown() {
     MainApp::running = false;
     converter->stop();
     connection->stop();
     concentrator->stop();
+}
+
+void signalHandler(int signum) {
+    std::cout << std::endl;
+    std::cout << "Interrupt signal (" << signum << ") received." << std::endl;
+    std::cout << "Closing application" << std::endl;
+    MainApp::shutDown();
 }
 
 int main(int argc, char *argv[]){
@@ -72,17 +76,21 @@ int main(int argc, char *argv[]){
 //        std::cerr << "Problem starting concentrator" << std::endl;
 //        return -1;
 //    }
-//    if (connection->start()<0){
-//        std::cerr << "Problem starting network communication" << std::endl;
-//        //signalHandler(SIGINT);
-//        concentrator->join();
-//    }
-//    else {
-//        connection->join();
-//        concentrator->join();
-//    }
-    converter->join();
+
+
+
+    if (connection->start()<0){
+        std::cerr << "Problem starting network communication" << std::endl;
+        signalHandler(SIGINT);
+        //concentrator->join();
+        converter->join();
+    }
+    else {
+        connection->join();
+        //concentrator->join();
+        converter->join();
+    }
+    //converter->join();
 }
 
 bool MainApp::running;
-

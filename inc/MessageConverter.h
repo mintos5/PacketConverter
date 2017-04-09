@@ -4,7 +4,8 @@
 
 #ifndef PACKETCONVERTER_MESSAGECONVERTOR_H
 #define PACKETCONVERTER_MESSAGECONVERTOR_H
-
+#define MAX_RXL 5
+#define CONNECTION_TIMEOUT 10000
 
 #include <thread>
 #include <mutex>
@@ -35,8 +36,8 @@ class MessageConverter {
     std::mutex timerMutex;
     std::thread timerFiber;
 
-    Message getFromStiotData();
-    LoraPacket getFromLoraData();
+    bool getFromStiotData(Message &data);
+    bool getFromLoraData(LoraPacket &data);
 
     void fromStiot();
     void fromLora();
@@ -54,6 +55,7 @@ public:
     void join();
     void addToQueue(Message message);
     void addToQueue(LoraPacket message);
+    void addBulk(std::vector<LoraPacket> vector);
 
     void setConnection(const std::shared_ptr<ConnectionController> &connection);
     void setConcentrator(const std::shared_ptr<ConcentratorController> &concentrator);

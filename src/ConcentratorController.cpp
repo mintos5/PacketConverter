@@ -34,14 +34,15 @@ ConcentratorController::ConcentratorController(const std::shared_ptr<MessageConv
 }
 
 int ConcentratorController::start() {
-    this->fiberSend = std::thread(&ConcentratorController::processStiot,this);
+    return 0;
+}
 
+int ConcentratorController::startOffline() {
     std::ifstream input("seta.json");
     std::stringstream sstr;
     while(input >> sstr.rdbuf());
     std::string seta = sstr.str();
     this->startConcentrator(Message::fromJsonString(seta));
-
     return 0;
 }
 
@@ -198,6 +199,8 @@ int ConcentratorController::startConcentrator(Message param) {
         std::cout << "INFO: [main] concentrator started, packet can now be received" << std::endl;
         this->receiveRun = true;
         this->fiberReceive = std::thread(&ConcentratorController::receiveHal,this);
+        this->sendRun = true;
+        this->fiberSend = std::thread(&ConcentratorController::processStiot,this);
     } else {
         std::cout << "ERROR: [main] failed to start the concentrator" << std::endl;
         return -1;
@@ -288,19 +291,18 @@ void ConcentratorController::receiveHal() {
 }
 
 void ConcentratorController::processStiot() {
-
+    std::unique_lock<std::mutex> guard(this->queueMutex);
     sendMutex.lock();
     while (sendRun){
         sendMutex.unlock();
         if (serverData.empty()){
-            std::unique_lock<std::mutex> guard(this->queueMutex);
             sendConditional.wait(guard);
             std::cout << "conditionVariable.unlocked" << std::endl;
         }
         while(!serverData.empty()){
             LoraPacket msg = serverData.front();
             serverData.pop();
-
+            //todo send this msg
         }
         sendMutex.lock();
     }

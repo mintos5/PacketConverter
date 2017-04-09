@@ -13,7 +13,6 @@ ConnectionController::ConnectionController(const std::shared_ptr<MessageConverte
     //std::cout << config.message["conf"]["server_address"].dump() << std::endl;
     nlohmann::json confSection = config.message.at("conf");
     this->hostname = confSection["server_address"].get<std::string>();
-    this->gatewayId = confSection["gateway_ID"];
 }
 
 int ConnectionController::start() {
@@ -39,15 +38,19 @@ int ConnectionController::start() {
     BIO_set_nbio(bio,1);
     //Try to connect
     int connectReturn;
-    int retry = 0;
     while(connectReturn = BIO_do_connect(bio),connectReturn <= 0){
-        if(!BIO_should_retry(bio) || retry > 6){
+        if(!BIO_should_retry(bio)){
             std::cerr << "Error connecting  to server" << std::endl;
             BIO_free_all(bio);
             SSL_CTX_free(ctx);
             return -1;
         }
-        ++retry;
+        this->processMutex.lock();
+        if (!this->processRun){
+            this->processMutex.unlock();
+            return -1;
+        }
+        this->processMutex.unlock();
     }
     if (BIO_get_fd(bio, &socket) < 0) {
         std::cerr << "Error getting connection fd" << std::endl;
@@ -77,7 +80,8 @@ void ConnectionController::send() {
     std::stringstream ss;
     ss << "GET" << this->sendNum;
     Message keys = Message::fromFile("keyr.json");
-    std::string request = keys.toStiot();
+    //std::string request = keys.toStiot();
+    std::string request = ss.str();
     //TODO check for messages in queue
     if (this->sendNum<2){
         while(BIO_write(bio, request.c_str(), request.size()) <= 0) {
@@ -96,6 +100,7 @@ void ConnectionController::process() {
     std::string out;
     fd_set fds;
     timeval readTimeout;
+    connected = true;
     bool connectionDown = false;
 
     processMutex.lock();
@@ -164,4 +169,11 @@ void ConnectionController::stop() {
 void ConnectionController::addToQueue(Message message) {
     std::lock_guard<std::mutex> guard1(this->queueMutex);
     this->endDeviceData.push(message);
+}
+
+void ConnectionController::addBulk(std::vector<Message> vector) {
+    std::unique_lock<std::mutex> guard(this->queueMutex);
+    for (auto const& ent: vector){
+        this->endDeviceData.push(ent);
+    }
 }

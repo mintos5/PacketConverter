@@ -31,7 +31,7 @@ class ConcentratorController {
 
     std::shared_ptr<MessageConverter> converter;
 
-    bool sendRun = true;
+    bool sendRun = false;
     std::mutex sendMutex;
     bool receiveRun = false;
     std::mutex receiveMutex;
@@ -45,7 +45,6 @@ class ConcentratorController {
 
     void processStiot();
     void receiveHal();
-    int startConcentrator(Message param);
     int sendHal(LoraPacket msg);
 
 public:
@@ -54,6 +53,7 @@ public:
     int startOffline();
     void join();
     void stop();
+    int startConcentrator(Message param);
     void addToQueue(LoraPacket message);
 
     ConcentratorController(const std::shared_ptr<MessageConverter> &converter,Message config);

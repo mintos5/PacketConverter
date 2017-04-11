@@ -79,18 +79,18 @@ int main(int argc, char *argv[]){
 
 
 
-    if (connection->start()<0){
-        std::cerr << "Problem starting network communication" << std::endl;
-        signalHandler(SIGINT);
-        //concentrator->join();
-        converter->join();
-    }
-    else {
-        connection->join();
-        //concentrator->join();
-        converter->join();
-    }
-    //converter->join();
+//    if (connection->start()<0){
+//        std::cerr << "Problem starting network communication" << std::endl;
+//        signalHandler(SIGINT);
+//        //concentrator->join();
+//        converter->join();
+//    }
+//    else {
+//        connection->join();
+//        //concentrator->join();
+//        converter->join();
+//    }
+    converter->join();
 }
 
 bool MainApp::running;

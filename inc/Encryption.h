@@ -7,7 +7,9 @@
 
 
 class Encryption {
-
+    //todo add funckie sifrovania
+    static void encrypt();
+    static void decrypt();
 };
 
 

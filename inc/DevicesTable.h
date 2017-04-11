@@ -4,7 +4,7 @@
 
 #ifndef PACKETCONVERTER_DEVICESTABLE_H
 #define PACKETCONVERTER_DEVICESTABLE_H
-#define PRE_KEY_SIZE 128
+#define PRE_KEY_SIZE 192
 #define SESSION_KEY_SIZE 128
 
 #include <chrono>
@@ -18,19 +18,33 @@ extern "C" {
 
 struct EndDevice{
     uint8_t preSharedKey[PRE_KEY_SIZE];
-    uint8_t preSharedGenerator;
+    uint64_t preSharedGenerator;
+    bool sessionKeyExists;
     uint8_t sessionKey[SESSION_KEY_SIZE];
     std::chrono::milliseconds timer;
-    LoraPacket lastPacket;
+    uint8_t dhb[SESSION_KEY_SIZE];
+    uint32_t frequency;
+    uint8_t	rfChain;
+    uint16_t bandwidth;
+    uint32_t datarate;
+    std::string	coderate;
 };
 
 class DevicesTable {
-public:
-    lgw_pkt_tx_s setPacket(std::string deviceId);
-    static lgw_pkt_tx_s setTestParams();
 
     std::map<std::string,EndDevice> map;
     static std::mutex mapMutex;
+
+public:
+    //todo add funckie tabulky
+    void setPacket(std::string deviceId,LoraPacket &packet);
+    bool isInMap(std::string deviceId);
+    void addToMap(std::string deviceId);
+    bool removeFromMap(std::string deviceId);   //will return if finded...
+    void updateMap(std::string deviceId);
+    bool hasSessionKey(std::string deviceId);
+    bool updateSessionkey(std::string deviceId,uint8_t sessionKey[SESSION_KEY_SIZE]);   //will return bool if finded
+    static lgw_pkt_tx_s setTestParams();
 };
 
 

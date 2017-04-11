@@ -15,14 +15,38 @@ enum LoraType{
     NORMAL,EMERGENCY,REGISTER
 };
 
+enum LoraAck{
+    NO_ACK,OPTIONAL_ACK,MANDATORY_ACK
+};
+
+struct LorafiitHeader{
+
+};
+struct LorafiitFooter{
+
+};
+
 struct LoraPacket{
+    uint32_t frequency;
+    uint8_t	rfChain;
+    uint16_t bandwidth;
+    uint32_t datarate;
+    std::string	coderate;
+    float rssi;
+    float snr;
+    uint16_t size;
     uint8_t payload[256];
-    uint16_t	size;
+    uint8_t devId[24];
+    uint8_t dh[128];
+    int8_t rfPower;
     LoraType type;
-    //todo dalsie parametre... aj na posielanie a prijem aj rf_chain
+    LoraAck ack;
 };
 
 class Message {
+    //todo Base64 function
+    std::string to64String(uint8_t *data);
+    void from64String(std::string,uint8_t *data);
 
 public:
     MessageType type;
@@ -31,13 +55,14 @@ public:
     static Message fromJsonString(std::string message);
     static Message fromLora(LoraPacket in);
     static LoraPacket fromStiot(Message in);
+    static uint8_t createNetworkData(nlohmann::json paramObject, uint8_t *data);
+    //todo generators for jsons + networkData + citanie
     static Message createSETR();
     static Message createKEYS();
     static Message createKEYR();
     static Message createERR();
     static Message fromFile(std::string file);
     std::string toStiot();
-    uint16_t writePayload(uint8_t payload[]);
     nlohmann::json getData();
 };
 

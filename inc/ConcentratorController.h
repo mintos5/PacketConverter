@@ -22,9 +22,6 @@ extern "C" {
 class ConcentratorController {
     int ifChainCount;
     nlohmann::json localConfig;
-    nlohmann::json normalConfig;
-    nlohmann::json emerConfig;
-    nlohmann::json regConfig;
     struct lgw_conf_board_s boardconf;
     struct lgw_tx_gain_lut_s txlut;
     const int fetchSleepMs = 10;
@@ -33,11 +30,11 @@ class ConcentratorController {
 
     bool sendRun = false;
     std::mutex sendMutex;
+    std::thread fiberSend;
+
     bool receiveRun = false;
     std::mutex receiveMutex;
-
     std::thread fiberReceive;
-    std::thread fiberSend;
 
     std::condition_variable sendConditional;
     std::queue<LoraPacket> serverData;
@@ -46,11 +43,14 @@ class ConcentratorController {
     void processStiot();
     void receiveHal();
     int sendHal(LoraPacket msg);
+    struct lgw_pkt_tx_s toHal(LoraPacket msg);
+    LoraPacket fromHal(struct lgw_pkt_rx_s msg);
 
 public:
 
     int start();
     int startOffline();
+    int sendRawTest(std::string);
     void join();
     void stop();
     int startConcentrator(Message param);

@@ -76,21 +76,21 @@ void ConnectionController:: join() {
 
 void ConnectionController::send() {
     std::lock_guard<std::mutex> guard1(this->queueMutex);
-    this->sendNum++;
-    std::stringstream ss;
-    ss << "GET" << this->sendNum;
     Message keys = Message::fromFile("keyr.json");
     //std::string request = keys.toStiot();
-    std::string request = ss.str();
-    //TODO check for messages in queue
-    if (this->sendNum<2){
-        while(BIO_write(bio, request.c_str(), request.size()) <= 0) {
-            if(! BIO_should_retry(bio))
-            {
-                std::cerr << "Error writing to SSL socket" << std::endl;
-            }
-            std::cout << "Repeating writing to SSL socket" << std::endl;
+    //std::string request = ss.str();
+    std::string request;
+    while (!endDeviceData.empty()){
+        Message msg = endDeviceData.front();
+        endDeviceData.pop();
+        request = msg.toStiot();
+    }
+    while(BIO_write(bio, request.c_str(), request.size()) <= 0) {
+        if(! BIO_should_retry(bio))
+        {
+            std::cerr << "Error writing to SSL socket" << std::endl;
         }
+        std::cout << "Repeating writing to SSL socket" << std::endl;
     }
 }
 
@@ -111,8 +111,7 @@ void ConnectionController::process() {
 
         //std::this_thread::sleep_for(std::chrono::seconds(1));
         //std::cout << "Sended message, waiting 1 sec" << std::endl;
-
-
+        
         char buffData[buffSize];
         int readReturn;
         bool someData = false;

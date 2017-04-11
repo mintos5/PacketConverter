@@ -24,19 +24,17 @@ class ConnectionController {
 
     std::shared_ptr<MessageConverter> converter;
 
-    int sendNum = 0;
-
-    void process();
     void send();
-
+    void process();
     bool processRun = true;
     std::mutex processMutex;
+    std::thread fiberProcess;
+
+    std::queue<Message> endDeviceData;
+    std::mutex queueMutex;
 
 public:
     bool connected = false;
-    std::thread fiberProcess;
-    std::queue<Message> endDeviceData;
-    std::mutex queueMutex;
 
     int start();
     int startOffline();

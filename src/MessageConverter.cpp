@@ -107,8 +107,8 @@ void MessageConverter::fromStiot() {
     while (this->fromStiotRun){
         guard.unlock();
         Message in;
+        //just gen one message and send
         if (this->getFromStiotData(in)){
-            //todo tu bude viac checkou
             if (in.type==SETA){
                 if (oneTime){
                     //need to turn off and turn on
@@ -122,12 +122,11 @@ void MessageConverter::fromStiot() {
                     oneTime = true;
                 }
             }
-            else {
-                //std::cout <<in.toStiot() << std::endl;
+            else if (in.type==REGA || in.type==TXL){
+                LoraPacket out = Message::fromStiot(in);
+                concentrator->addToQueue(out);
             }
         }
-//        LoraPacket out = Message::fromStiot(in);
-//        concentrator->addToQueue(out);
         guard.lock();
     }
     guard.unlock();
@@ -166,7 +165,6 @@ void MessageConverter::fromLora() {
         }
         std::cout << "koniec whilu"<< std::endl;
         guardData.unlock();
-        //todo a toto poslat dalej
         connection->addBulk(outVector);
         guard.lock();
     }
@@ -177,19 +175,20 @@ void MessageConverter::timerFunction() {
     std::chrono::milliseconds startTime = std::chrono::duration_cast< std::chrono::milliseconds >
             (std::chrono::system_clock::now().time_since_epoch());
     std::unique_lock<std::mutex> guard(this->timerMutex);
+    bool oneTime = true;
     while (this->timerRun){
         guard.unlock();
         std::this_thread::sleep_for(std::chrono::seconds(3));
         std::chrono::milliseconds currentTime = std::chrono::duration_cast< std::chrono::milliseconds >
                 (std::chrono::system_clock::now().time_since_epoch());
         std::cout << "STATUS TIMER" << std::endl;
-
-
-
-
-
+        if (oneTime){
+            //todo dolezite
+//            std::string textik = "ahojsvetasjndasdas1234567890";
+//            std::copy(textik.c_str(),textik.c_str()+(test.size),test.payload);
+        }
         if (!this->connection->connected && currentTime.count()-startTime.count()>CONNECTION_TIMEOUT){
-            std::cerr << "Connection timeout" << std::endl;
+            //std::cerr << "Connection timeout" << std::endl;
             //raise(SIGINT);
         }
 //        std::vector<LoraPacket> test;

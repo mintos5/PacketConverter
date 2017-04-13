@@ -6,10 +6,12 @@
 #define PACKETCONVERTER_ENCRYPTION_H
 
 
+#include <cstdint>
+
 class Encryption {
-    //todo add funckie sifrovania
-    static void encrypt();
-    static void decrypt();
+public:
+    static void encrypt(uint8_t *indata,unsigned int n,uint8_t *key,uint8_t *outdata);
+    static void decrypt(uint8_t *indata,unsigned int size,uint8_t *key,uint8_t *outdata);
 };
 
 

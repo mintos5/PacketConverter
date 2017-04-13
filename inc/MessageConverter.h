@@ -4,14 +4,12 @@
 
 #ifndef PACKETCONVERTER_MESSAGECONVERTOR_H
 #define PACKETCONVERTER_MESSAGECONVERTOR_H
-#define MAX_RXL 5
-#define CONNECTION_TIMEOUT 10000
+#define CONNECTION_TIMEOUT 10
 
 #include <thread>
 #include <mutex>
 #include <condition_variable>
 #include <queue>
-#include "Message.h"
 #include "DevicesTable.h"
 
 class ConcentratorController;

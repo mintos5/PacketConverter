@@ -55,7 +55,7 @@ int ConcentratorController::startConcentrator(Message param) {
         return -1;
     }
     //GENERATE rxif and rfconf
-    nlohmann::json params = param.getData().at("params");
+    nlohmann::json params = param.getData();
     std::map<int32_t,lgw_conf_rxif_s> freqsMap;
     int multiSFCount = 0;
     for (auto& param1 : params) {

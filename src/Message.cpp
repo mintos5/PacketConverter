@@ -4,8 +4,9 @@
 
 #include <cstdint>
 #include <Message.h>
-#include <json.hpp>
 #include <fstream>
+#include <base64.h>
+#include "DevicesTable.h"
 
 
 Message Message::fromJsonString(std::string message) {
@@ -22,12 +23,19 @@ Message Message::fromJsonString(std::string message) {
             }
             else if (out.message.at("message_name").get<std::string>()=="KEYA"){
                 out.type = KEYA;
+                out.devId = out.getData().at("dev_id");
             }
             else if (out.message.at("message_name").get<std::string>()=="TXL"){
                 out.type = TXL;
+                out.devId = out.getData().at("dev_id");
             }
             else if (out.message.at("message_name").get<std::string>()=="REGA"){
                 out.type = REGA;
+                out.devId = out.getData().at("dev_id");
+            }
+            else if (out.message.at("message_name").get<std::string>()=="ERROR"){
+                out.type = ERROR;
+                out.devId = out.getData().at("dev_id");
             }
         }
         else {
@@ -38,8 +46,8 @@ Message Message::fromJsonString(std::string message) {
     return out;
 }
 
-Message Message::fromLora(LoraPacket in) {
-    //todo hlavna zmena z lora na stiot
+Message Message::fromLora(LoraPacket in, uint8_t *key) {
+    //todo hlavna zmena z lora na stiot a sifrovanie
     //vytvor hlavicku a tu zparsuj
     //desifruj data a premen na Base64
     //ak sa jedna o registraciu, budes pouzivat tabulku
@@ -57,13 +65,23 @@ Message Message::fromLora(LoraPacket in) {
     return Message();
 }
 
-LoraPacket Message::fromStiot(Message in) {
-    //todo hlavna zmena z stiot na lora
-    //cekni tabulku, ci viem o koho sa jedna a ci nevyprsal timer
+LoraPacket Message::fromStiot(Message in,uint8_t *key) {
+    //todo hlavna zmena z stiot na lora a sifrovanie
     //specialne pri registraciii sa bude diat veci
+    LoraPacket out;
+    if (in.type == REGA){
+        //vynechat dostatocne miesto pre DH key
+        //pride mi aj pre_shared key
+    }
+    else if (in.type == TXL){
+
+    }
+    else if (in.type == KEYA){
+
+    }
     //vytvor LoraPacket
     //vytvor strukturu a tu zasifruj
-    return LoraPacket();
+    return out;
 }
 
 std::string Message::toStiot() {
@@ -83,10 +101,12 @@ Message Message::fromFile(std::string file) {
 }
 
 uint8_t Message::createNetworkData(nlohmann::json paramObject, uint8_t *data) {
+    //todo Creating lorafiit structure
     return 0;
 }
 
 bool Message::isLoraPacketCorrect(LoraPacket in) {
+    //todo MIC control
     return false;
 }
 
@@ -130,4 +150,27 @@ Message Message::createERR(uint32_t error,std::string description) {
     data["error_desc"] = description;
     std::cout << out.toStiot() << std::endl;
     return out;
+}
+
+Message Message::createREGR(std::string devId, LoraPacket in) {
+    //todo write regr generator
+    return Message();
+}
+
+Message Message::createRXL(std::string devId, LoraPacket in) {
+    //todo write rxl generator
+    return Message();
+}
+
+std::string Message::toBase64(uint8_t *data, unsigned int size) {
+    int charSize = Base64::EncodedLength(size);
+    std::vector<char> devIdChar(charSize);
+    Base64::Encode((const char *) data, size, devIdChar.data(), charSize);
+    devIdChar.push_back(0);
+    std::string outData = devIdChar.data();
+    return outData;
+}
+
+void Message::fromBase64(std::string data, uint8_t *outData,unsigned int outSize) {
+    Base64::Decode(data.c_str(), data.size(), (char *) outData, outSize);
 }

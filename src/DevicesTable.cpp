@@ -40,7 +40,7 @@ bool DevicesTable::isInMap(std::string deviceId, std::map<std::string, EndDevice
     return false;
 }
 
-bool DevicesTable::setPacket(std::string deviceId, LoraPacket &packet, uint16_t &seq) {
+bool DevicesTable::setPacket(std::string deviceId, struct LoraPacket &packet, uint16_t &seq) {
     std::lock_guard<std::mutex> guard(DevicesTable::mapMutex);
     if (isInMap(deviceId)){
         packet.frequency = map[deviceId].frequency;
@@ -64,7 +64,7 @@ bool DevicesTable::removeFromMap(std::string deviceId) {
     return false;
 }
 
-bool DevicesTable::updateMap(std::string deviceId,LoraPacket packet,uint16_t seq) {
+bool DevicesTable::updateMap(std::string deviceId,struct LoraPacket packet,uint16_t seq) {
     std::lock_guard<std::mutex> guard(DevicesTable::mapMutex);
     std::chrono::minutes currentTime = std::chrono::duration_cast< std::chrono::minutes >
             (std::chrono::system_clock::now().time_since_epoch());
@@ -79,6 +79,8 @@ bool DevicesTable::updateMap(std::string deviceId,LoraPacket packet,uint16_t seq
     else {
         EndDevice endDevice;
         endDevice.sessionKeyExists = false;
+        endDevice.sessionKeyCheck = false;
+        endDevice.myDevice = true;
         endDevice.bandwidth = packet.bandwidth;
         endDevice.coderate = packet.coderate;
         endDevice.datarate = packet.datarate;
@@ -106,6 +108,94 @@ bool DevicesTable::updateSessionkey(std::string deviceId, uint8_t *sessionKey) {
     std::map<std::string, EndDevice>::iterator iterator;
     if (isInMap(deviceId,iterator)){
         std::copy(sessionKey,sessionKey+SESSION_KEY_SIZE,iterator->second.sessionKey);
+        iterator->second.sessionKeyExists = true;
+        iterator->second.sessionKeyCheck = false;
+        return true;
+    }
+    return false;
+}
+
+bool DevicesTable::isMine(std::string deviceId) {
+    std::lock_guard<std::mutex> guard(DevicesTable::mapMutex);
+    std::map<std::string, EndDevice>::iterator iterator;
+    if (isInMap(deviceId,iterator)){
+        if (iterator->second.myDevice){
+            return true;
+        }
+    }
+    return false;
+}
+
+void DevicesTable::updateByTimer(std::chrono::seconds currentTime) {
+    if (currentTime.count()-this->time.count()>TIME_INTERVAL){
+        this->resetDutyCycle();
+        std::lock_guard<std::mutex> guard(DevicesTable::mapMutex);
+        std::map <std::string,EndDevice>::iterator it = map.begin();
+        while (it != map.end()) {
+            if (currentTime.count()-it->second.timer.count()>FLUSH_DEVICE){
+                it = map.erase(it);
+                continue;
+            }
+            ++it;
+        }
+    }
+}
+
+void DevicesTable::resetDutyCycle() {
+
+}
+
+uint8_t *DevicesTable::getSessionKey(std::string deviceId) {
+    std::lock_guard<std::mutex> guard(DevicesTable::mapMutex);
+    std::map<std::string, EndDevice>::iterator iterator;
+    if (isInMap(deviceId,iterator)){
+        if (iterator->second.sessionKeyExists){
+            return iterator->second.sessionKey;
+        }
+    }
+    return nullptr;
+}
+
+bool DevicesTable::setSessionKeyCheck(std::string deviceId, bool set) {
+    std::lock_guard<std::mutex> guard(DevicesTable::mapMutex);
+    std::map<std::string, EndDevice>::iterator iterator;
+    if (isInMap(deviceId,iterator)){
+        if (iterator->second.sessionKeyExists){
+            iterator->second.sessionKeyCheck = set;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool DevicesTable::hasSessionKeyCheck(std::string deviceId) {
+    std::lock_guard<std::mutex> guard(DevicesTable::mapMutex);
+    std::map<std::string, EndDevice>::iterator iterator;
+    if (isInMap(deviceId,iterator)){
+        if (iterator->second.sessionKeyCheck){
+            return true;
+        }
+    }
+    return false;
+}
+
+uint16_t DevicesTable::getSeq(std::string deviceId) {
+    std::lock_guard<std::mutex> guard(DevicesTable::mapMutex);
+    std::map<std::string, EndDevice>::iterator iterator;
+    if (isInMap(deviceId,iterator)){
+        return iterator->second.seq;
+    }
+    return 0;
+}
+
+uint8_t DevicesTable::remainingDutyCycle(std::string deviceId) {
+    return 20;
+}
+
+bool DevicesTable::reduceDutyCycle(std::string deviceId, uint8_t messageSize) {
+    std::lock_guard<std::mutex> guard(DevicesTable::mapMutex);
+    std::map<std::string, EndDevice>::iterator iterator;
+    if (isInMap(deviceId,iterator)){
         return true;
     }
     return false;

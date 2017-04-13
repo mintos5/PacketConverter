@@ -76,21 +76,20 @@ void ConnectionController:: join() {
 
 void ConnectionController::send() {
     std::lock_guard<std::mutex> guard1(this->queueMutex);
-    Message keys = Message::fromFile("keyr.json");
+    //Message keys = Message::fromFile("keys.json");
     //std::string request = keys.toStiot();
-    //std::string request = ss.str();
     std::string request;
     while (!endDeviceData.empty()){
         Message msg = endDeviceData.front();
         endDeviceData.pop();
         request = msg.toStiot();
-    }
-    while(BIO_write(bio, request.c_str(), request.size()) <= 0) {
-        if(! BIO_should_retry(bio))
-        {
-            std::cerr << "Error writing to SSL socket" << std::endl;
+        while(BIO_write(bio, request.c_str(), request.size()) <= 0) {
+            if(! BIO_should_retry(bio))
+            {
+                std::cerr << "Error writing to SSL socket" << std::endl;
+            }
+            std::cout << "Repeating writing to SSL socket" << std::endl;
         }
-        std::cout << "Repeating writing to SSL socket" << std::endl;
     }
 }
 

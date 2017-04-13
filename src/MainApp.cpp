@@ -72,7 +72,7 @@ int main(int argc, char *argv[]){
         return -1;
     }
 
-//    if (concentrator->start()<0){
+//    if (concentrator->startOffline()<0){
 //        std::cerr << "Problem starting concentrator" << std::endl;
 //        return -1;
 //    }
@@ -90,6 +90,7 @@ int main(int argc, char *argv[]){
 //        //concentrator->join();
 //        converter->join();
 //    }
+    //concentrator->join();
     converter->join();
 }
 

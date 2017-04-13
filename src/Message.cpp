@@ -26,6 +26,9 @@ Message Message::fromJsonString(std::string message) {
             else if (out.message.at("message_name").get<std::string>()=="TXL"){
                 out.type = TXL;
             }
+            else if (out.message.at("message_name").get<std::string>()=="REGA"){
+                out.type = REGA;
+            }
         }
         else {
             out.type = UNK;
@@ -77,4 +80,54 @@ Message Message::fromFile(std::string file) {
     while(input >> sstr.rdbuf());
     std::string seta = sstr.str();
     return Message::fromJsonString(seta);
+}
+
+uint8_t Message::createNetworkData(nlohmann::json paramObject, uint8_t *data) {
+    return 0;
+}
+
+bool Message::isLoraPacketCorrect(LoraPacket in) {
+    return false;
+}
+
+Message Message::createSETR(std::string setrFile) {
+    Message out = Message::fromFile(setrFile);
+    out.type = SETR;
+    return out;
+}
+
+Message Message::createKEYS(std::string devId,uint16_t seq,std::string key) {
+    Message out;
+    out.type = KEYS;
+    out.message["message_name"] = "KEYS";
+    out.message["message_body"] = nlohmann::json::object();
+    nlohmann::json &data = out.message.at("message_body");
+    data["dev_id"] = devId;
+    data["seq"] = seq;
+    data["key"] = key;
+    std::cout << out.toStiot() << std::endl;
+    return out;
+}
+
+Message Message::createKEYR(std::string devId) {
+    Message out;
+    out.type = KEYR;
+    out.message["message_name"] = "KEYR";
+    out.message["message_body"] = nlohmann::json::object();
+    nlohmann::json &data = out.message.at("message_body");
+    data["dev_id"] = devId;
+    std::cout << out.toStiot() << std::endl;
+    return out;
+}
+
+Message Message::createERR(uint32_t error,std::string description) {
+    Message out;
+    out.type = ERROR;
+    out.message["message_name"] = "ERROR";
+    out.message["message_body"] = nlohmann::json::object();
+    nlohmann::json &data = out.message.at("message_body");
+    data["error"] = error;
+    data["error_desc"] = description;
+    std::cout << out.toStiot() << std::endl;
+    return out;
 }

@@ -3,6 +3,7 @@
 //
 
 #include <csignal>
+#include <base64.h>
 #include "MessageConverter.h"
 #include "ConcentratorController.h"
 #include "ConnectionController.h"
@@ -178,7 +179,7 @@ void MessageConverter::timerFunction() {
     bool oneTime = true;
     while (this->timerRun){
         guard.unlock();
-        std::this_thread::sleep_for(std::chrono::seconds(3));
+        std::this_thread::sleep_for(std::chrono::seconds(6));
         std::chrono::milliseconds currentTime = std::chrono::duration_cast< std::chrono::milliseconds >
                 (std::chrono::system_clock::now().time_since_epoch());
         std::cout << "STATUS TIMER" << std::endl;
@@ -186,6 +187,22 @@ void MessageConverter::timerFunction() {
             //todo dolezite
 //            std::string textik = "ahojsvetasjndasdas1234567890";
 //            std::copy(textik.c_str(),textik.c_str()+(test.size),test.payload);
+//            std::string vstup = "WAUU";
+//            uint8_t vonku[256];
+//            char extra[256];
+//            Base64::Encode(vstup.c_str(), 3, (char *) vonku, 256);
+//            std::cout << vonku[0] << std::endl;
+//            Base64::Decode((const char *) vonku, 4, extra, 256);
+//            std::string extra2 = extra;
+//            std::cout << extra2 << std::endl;
+            //this->concentrator->sendRawTest("");
+            //Message test;
+            //test = Message::fromFile("keys.json");
+            //test = Message::fromFile("keyr.json");
+            //connection->addToQueue(test);
+            Message::createKEYR("asud");
+            Message::createKEYS("wauw",78,"asygdaisudjgaisdasdyabsdjhabsdasd");
+            oneTime = false;
         }
         if (!this->connection->connected && currentTime.count()-startTime.count()>CONNECTION_TIMEOUT){
             //std::cerr << "Connection timeout" << std::endl;

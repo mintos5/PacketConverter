@@ -38,8 +38,7 @@ int ConcentratorController::startOffline() {
     std::stringstream sstr;
     while(input >> sstr.rdbuf());
     std::string seta = sstr.str();
-    this->startConcentrator(Message::fromJsonString(seta));
-    return 0;
+    return this->startConcentrator(Message::fromJsonString(seta));
 }
 
 int ConcentratorController::startConcentrator(Message param) {
@@ -317,9 +316,9 @@ int ConcentratorController::sendRawTest(std::string) {
     //GETTING SENDING PARAMETERS
     struct lgw_pkt_tx_s txpkt = DevicesTable::setTestParams();
     //GETTING DATA
-    char message[] = "pong";
-    std::copy(message,message+4,txpkt.payload);
-    txpkt.size = 4;
+    char message[] = "ping pong";
+    std::copy(message,message+8,txpkt.payload);
+    txpkt.size = 8;
     uint8_t status_var;
     do {
         lgw_status(TX_STATUS, &status_var); /* get TX status */
@@ -347,6 +346,8 @@ LoraPacket ConcentratorController::fromHal(struct lgw_pkt_rx_s msg) {
     out.rssi = msg.rssi;
     out.snr = msg.snr;
     out.rfChain = msg.rf_chain;
+    out.time = std::chrono::duration_cast< std::chrono::milliseconds >
+            (std::chrono::system_clock::now().time_since_epoch());
     switch(msg.bandwidth) {
         case BW_500KHZ:
             out.bandwidth = 500;

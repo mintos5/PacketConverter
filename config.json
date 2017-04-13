@@ -8,12 +8,11 @@
 		},
 		"radio_1": {
 			"type": "SX1257",
-			"tx_enable": false
+			"tx_enable": true
 		},
 		"if_chain": 5,
 		"rssi_offset": -166.0,
-		"server_address": "localhost:12345",
-		"gateway_ID": 1
+		"server_address": "192.168.1.1:12345"
 	},
 	"tx_luts":[
 		{

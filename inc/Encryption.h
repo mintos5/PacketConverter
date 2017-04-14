@@ -10,8 +10,8 @@
 
 class Encryption {
 public:
-    static void encrypt(uint8_t *indata,unsigned int n,uint8_t *key,uint8_t *outdata);
-    static void decrypt(uint8_t *indata,unsigned int size,uint8_t *key,uint8_t *outdata);
+    static void encrypt(uint8_t *indata,unsigned int size,uint8_t *key);
+    static void decrypt(uint8_t *indata,unsigned int size,uint8_t *key);
 };
 
 

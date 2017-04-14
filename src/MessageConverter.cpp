@@ -125,21 +125,44 @@ void MessageConverter::fromStiot() {
                     oneTime = true;
                 }
             }
+            else if (in.type==KEYA){
+                if (devicesTable.isMine(in.devId)){
+                    //get SEQ number from json
+                    uint16_t seq = in.getData().at("seq");
+                    //get base64 string with session key
+                    std::string keyB64 = in.getData().at("key");
+                    int dataSize = Base64::DecodedLength(keyB64);
+                    std::vector<uint8_t > keyVector(dataSize);
+                    Message::fromBase64(keyB64,keyVector.data(),dataSize);
+                    devicesTable.updateSessionkey(in.devId,keyVector.data(),seq);
+                }
+            }
             else if (in.type==REGA){
                 if (devicesTable.isMine(in.devId)){
-                    //todo generate session key
+                    //todo generate session key + random number from pre_shared key extract data
+                    std::string preSharedKey = in.getData().at("sh_key");
+
                     uint64_t dhb = DiffieHellman::getDHB(7,2,128);
                     //uint64_t ses1 = DiffieHellman::getSessionKey()
-                    devicesTable.updateSessionkey(in.devId, (uint8_t *) &dhb);
+
+                    devicesTable.updateSessionkey(in.devId, (uint8_t *) &dhb,0);
                     //message is ready
-                    LoraPacket out = Message::fromStiot(in,devicesTable.getSessionKey(in.devId));
+                    uint16_t seqNum;
+                    LoraPacket out = Message::fromStiot(in,devicesTable.getSessionKey(in.devId),seqNum);
+                    devicesTable.setSeq(in.devId,seqNum);
+                    devicesTable.setPacket(in.devId,out);
+                    //todo set dhb to packet
                     concentrator->addToQueue(out);
                 }
             }
             else if (in.type==TXL){
                 if (devicesTable.isMine(in.devId)){
                     if (devicesTable.hasSessionKey(in.devId)){
-                        LoraPacket out = Message::fromStiot(in,devicesTable.getSessionKey(in.devId));
+                        uint16_t seqNum;
+                        seqNum = devicesTable.getSeq(in.devId);
+                        LoraPacket out = Message::fromStiot(in,devicesTable.getSessionKey(in.devId),seqNum);
+                        devicesTable.setSeq(in.devId,seqNum);
+                        devicesTable.setPacket(in.devId,out);
                         concentrator->addToQueue(out);
                     }
                     else {
@@ -191,14 +214,17 @@ void MessageConverter::fromLora() {
 
         for (auto const& element: inVector){
             std::string devId = Message::toBase64(in.devId,24);
-            if (element.type==REGISTER){
+            if (element.type==REGISTER_UP){
                 this->devicesTable.updateMap(devId,element,0);
-                connection->addToQueue(Message::createREGR(devId,element));
+                connection->addToQueue(Message::createREGR(devId,element,this->devicesTable.remainingDutyCycle(devId)));
             }
-            else if (element.type==NORMAL || element.type==EMERGENCY){
+            else if (element.type==DATA_UP || element.type==HELLO_UP || element.type == EMERGENCY_UP){
                 if (devicesTable.hasSessionKey(devId) && devicesTable.isMine(devId)){
-                    out = Message::fromLora(element,devicesTable.getSessionKey(devId));
+                    uint16_t seqNum;
+                    out = Message::fromLora(devId,element,devicesTable.getSessionKey(devId),seqNum,
+                                            this->devicesTable.remainingDutyCycle(devId) );
                     if (out.micOk){
+                        devicesTable.setSeq(devId,seqNum);
                         outVector.push_back(out);
                         if (!devicesTable.hasSessionKeyCheck(devId)){
                             devicesTable.setSessionKeyCheck(devId,true);
@@ -254,16 +280,18 @@ void MessageConverter::timerFunction() {
             //connection->addToQueue(test);
             //Message::createKEYR("asud");
             //Message::createKEYS("wauw",78,"asygdaisudjgaisdasdyabsdjhabsdasd");
-            std::vector<uint8_t > key(128);
+            std::vector<uint8_t > key(16);
             key[0] = 5;
             key[1] = 5;
-            std::vector<uint8_t > plain(64);
+            std::vector<uint8_t > plain(8);
             plain[0] = 22;
             plain[1] = 93;
-            std::vector<uint8_t > cypher(64);
-            Encryption::encrypt(plain.data(),plain.size(),key.data(),cypher.data());
-            std::vector<uint8_t > plain2(64);
-            Encryption::decrypt(cypher.data(),cypher.size(),key.data(),plain2.data());
+            std::vector<uint8_t > cypher(8);
+            std::copy(plain.data(),plain.data()+8,cypher.data());
+            Encryption::encrypt(cypher.data(),plain.size(),key.data());
+            std::vector<uint8_t > plain2(8);
+            std::copy(cypher.data(),cypher.data()+8,plain2.data());
+            Encryption::decrypt(plain2.data(),plain2.size(),key.data());
             std::cout << "asdas";
 
         }

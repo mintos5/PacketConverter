@@ -40,15 +40,14 @@ bool DevicesTable::isInMap(std::string deviceId, std::map<std::string, EndDevice
     return false;
 }
 
-bool DevicesTable::setPacket(std::string deviceId, struct LoraPacket &packet, uint16_t &seq) {
+bool DevicesTable::setPacket(std::string deviceId, struct LoraPacket &packet) {
     std::lock_guard<std::mutex> guard(DevicesTable::mapMutex);
     if (isInMap(deviceId)){
         packet.frequency = map[deviceId].frequency;
         packet.coderate = map[deviceId].coderate;
         packet.bandwidth = map[deviceId].bandwidth;
         packet.datarate = map[deviceId].datarate;
-        seq = map[deviceId].seq;
-        seq++;
+        packet.rfChain = map[deviceId].rfChain;
         return true;
     }
     return false;
@@ -73,6 +72,7 @@ bool DevicesTable::updateMap(std::string deviceId,struct LoraPacket packet,uint1
         map[deviceId].datarate = packet.datarate;
         map[deviceId].bandwidth = packet.bandwidth;
         map[deviceId].coderate = packet.coderate;
+        map[deviceId].rfChain = packet.rfChain;
         map[deviceId].seq = seq;
         map[deviceId].timer = currentTime;
     }
@@ -85,6 +85,7 @@ bool DevicesTable::updateMap(std::string deviceId,struct LoraPacket packet,uint1
         endDevice.coderate = packet.coderate;
         endDevice.datarate = packet.datarate;
         endDevice.frequency = packet.frequency;
+        endDevice.rfChain = packet.rfChain;
         endDevice.seq = seq;
         endDevice.timer = currentTime;
         std::copy(packet.dh,packet.dh+SESSION_KEY_SIZE,endDevice.dha);
@@ -103,13 +104,14 @@ bool DevicesTable::hasSessionKey(std::string deviceId) {
     return false;
 }
 
-bool DevicesTable::updateSessionkey(std::string deviceId, uint8_t *sessionKey) {
+bool DevicesTable::updateSessionkey(std::string deviceId, uint8_t *sessionKey,uint16_t seq) {
     std::lock_guard<std::mutex> guard(DevicesTable::mapMutex);
     std::map<std::string, EndDevice>::iterator iterator;
     if (isInMap(deviceId,iterator)){
         std::copy(sessionKey,sessionKey+SESSION_KEY_SIZE,iterator->second.sessionKey);
         iterator->second.sessionKeyExists = true;
         iterator->second.sessionKeyCheck = false;
+        iterator->second.seq = seq;
         return true;
     }
     return false;
@@ -196,6 +198,16 @@ bool DevicesTable::reduceDutyCycle(std::string deviceId, uint8_t messageSize) {
     std::lock_guard<std::mutex> guard(DevicesTable::mapMutex);
     std::map<std::string, EndDevice>::iterator iterator;
     if (isInMap(deviceId,iterator)){
+        return true;
+    }
+    return false;
+}
+
+bool DevicesTable::setSeq(std::string deviceId, uint16_t seq) {
+    std::lock_guard<std::mutex> guard(DevicesTable::mapMutex);
+    std::map<std::string, EndDevice>::iterator iterator;
+    if (isInMap(deviceId,iterator)){
+        iterator->second.seq = seq;
         return true;
     }
     return false;

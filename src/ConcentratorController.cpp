@@ -250,7 +250,7 @@ void ConcentratorController::receiveHal() {
         std::cout << "NEW DATA:" << std::endl;
         std::vector<LoraPacket> vector;
         for (int i=0; i < packetsCount; ++i) {
-            if (rxpkt[i].status == STAT_CRC_OK){
+            if (rxpkt[i].status == STAT_CRC_OK && rxpkt[i].size > 4){
                 vector.push_back(this->fromHal(rxpkt[i]));
             }
         }
@@ -339,9 +339,57 @@ int ConcentratorController::sendRawTest(std::string) {
 
 LoraPacket ConcentratorController::fromHal(struct lgw_pkt_rx_s msg) {
     LoraPacket out;
-    //todo set type and devId
-    std::copy(msg.payload,msg.payload + (msg.size),out.payload);
-    out.size = msg.size;
+    std::copy(msg.payload,msg.payload + DEV_ID_SIZE,out.devId);
+    uint8_t *msgType = msg.payload + DEV_ID_SIZE;
+    uint8_t lorafiitType = *msgType & LORAFIIT_TYPE_TEMP;
+    switch (lorafiitType){
+        case LORAFIIT_REG_UP:
+            out.type = REGISTER_UP;
+            break;
+        case LORAFIIT_DATA_UP:
+            out.type = DATA_UP;
+            break;
+        case LORAFIIT_HELLO_UP:
+            out.type = HELLO_UP;
+            break;
+        case LORAFIIT_EMER_UP:
+            out.type = EMERGENCY_UP;
+            break;
+        case LORAFIIT_REG_DOWN:
+            out.type = REGISTER_DOWN;
+            break;
+        case LORAFIIT_DATA_DOWN:
+            out.type = DATA_DOWN;
+            break;
+        default:
+            out.type = DATA_UP;
+    }
+    uint8_t lorafiitAck = *msgType & LORAFIIT_ACK_TEMP;
+    switch (lorafiitAck){
+        case LORAFIIT_NO_ACK:
+            out.ack = NO_ACK;
+            break;
+        case LORAFIIT_MAN_ACK:
+            out.ack = MANDATORY_ACK;
+            break;
+        case LORAFIIT_OPT_ACK:
+            out.ack = OPTIONAL_ACK;
+            break;
+        default:
+            out.ack = NO_ACK;
+    }
+    //move next to data or DH
+    ++msgType;
+    out.size = msg.size - 4;    //-4 for devId and type
+    //copy data or DHA
+    if (out.type == REGISTER_UP){
+        if (out.size==DH_SIZE){
+            std::copy(msgType,msgType + (out.size),out.dh);
+        }
+    }
+    else {
+        std::copy(msgType,msgType + (out.size),out.payload);
+    }
     out.frequency = msg.freq_hz;
     out.rssi = msg.rssi;
     out.snr = msg.snr;
@@ -467,10 +515,35 @@ struct lgw_pkt_tx_s ConcentratorController::toHal(LoraPacket msg) {
     out.invert_pol = false;
     out.preamble = 8;
     //easy settings
-    out.size = msg.size;
+    out.size = msg.size + 4;    //+4 for devId and type
     out.freq_hz = msg.frequency;
     out.rf_power = msg.rfPower;
-    //todo write first bytes devID and type
+    out.rf_chain = msg.rfChain;
+    std::copy(msg.devId,msg.devId + DEV_ID_SIZE,out.payload);
+    uint8_t *typeAck = out.payload + DEV_ID_SIZE;
+    switch (msg.type){
+        case REGISTER_DOWN:
+            *typeAck = LORAFIIT_REG_DOWN;
+            break;
+        case DATA_DOWN:
+            *typeAck = LORAFIIT_DATA_DOWN;
+            break;
+        default:
+            *typeAck = LORAFIIT_DATA_DOWN;
+    }
+    switch (msg.ack){
+        case NO_ACK:
+            *typeAck = *typeAck + LORAFIIT_NO_ACK;
+            break;
+        case OPTIONAL_ACK:
+            *typeAck = *typeAck + LORAFIIT_OPT_ACK;
+            break;
+        case MANDATORY_ACK:
+            *typeAck = *typeAck + LORAFIIT_MAN_ACK;
+            break;
+        default:
+            *typeAck = *typeAck + LORAFIIT_NO_ACK;
+    }
     std::copy(msg.payload,msg.payload + (msg.size),out.payload);
     return out;
 }

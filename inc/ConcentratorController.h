@@ -17,6 +17,19 @@ extern "C" {
 #include "loragw_aux.h"
 }
 #define NB_PKT_MAX		8 /* max number of packets per fetch/send cycle */
+#define LORAFIIT_TYPE_TEMP 0xe0
+#define LORAFIIT_ACK_TEMP 0x07
+
+#define LORAFIIT_REG_UP 0x00
+#define LORAFIIT_DATA_UP 0x20
+#define LORAFIIT_HELLO_UP 0x40
+#define LORAFIIT_EMER_UP 0x60
+#define LORAFIIT_REG_DOWN 0x80
+#define LORAFIIT_DATA_DOWN 0xA0
+
+#define LORAFIIT_NO_ACK 0x00
+#define LORAFIIT_OPT_ACK 0x02
+#define LORAFIIT_MAN_ACK 0x06
 
 
 class ConcentratorController {

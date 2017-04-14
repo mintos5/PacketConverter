@@ -7,13 +7,24 @@
 #include <string>
 #include <chrono>
 #include "json.hpp"
+#define BLOCK_SIZE 8
+#define NET_BAND 0x10
+#define NET_CR 0x20
+#define NET_FR 0x30
+#define NET_PW 0x40
+#define NET_SF 0x50
+#define NET_TYPE_DIFF 0x50
+#define NET_MIN_FREQ 863000000
+
+#define DEV_ID_SIZE 3
+#define DH_SIZE 16
 
 enum MessageType{
     SETR,SETA,REGR,REGA,KEYS,KEYR,KEYA,RXL,TXL,CONFIG,ERROR,UNK
 };
 
 enum LoraType{
-    NORMAL,EMERGENCY,REGISTER
+    REGISTER_UP,DATA_UP,HELLO_UP,EMERGENCY_UP,REGISTER_DOWN,DATA_DOWN
 };
 
 enum LoraAck{
@@ -32,10 +43,10 @@ struct LoraPacket{
     std::string	coderate;
     float rssi;
     float snr;
-    uint16_t size;
-    uint8_t payload[256];
-    uint8_t devId[24];
-    uint8_t dh[128];
+    uint16_t size;          // size without devId and type
+    uint8_t payload[251];
+    uint8_t devId[DEV_ID_SIZE];
+    uint8_t dh[DH_SIZE];
     int8_t rfPower;
     LoraType type;
     LoraAck ack;
@@ -44,8 +55,9 @@ struct LoraPacket{
 
 class Message {
     //pomocne funkcie
-    static uint8_t createNetworkData(nlohmann::json paramObject, uint8_t *data);
-    static bool isLoraPacketCorrect(LoraPacket in);
+    static uint8_t createNetworkData(nlohmann::json paramArray, uint8_t *data,bool full);
+    static bool isLoraPacketCorrect(uint8_t *in);
+    static u_int32_t createCheck(uint8_t *data);
 public:
     MessageType type;
     nlohmann::json message;
@@ -58,15 +70,13 @@ public:
     static void fromBase64(std::string data,uint8_t *outData,unsigned int outSize);
 
     static Message fromJsonString(std::string message);
-    static Message fromLora(LoraPacket in, uint8_t *key);
-    static LoraPacket fromStiot(Message in,uint8_t *key);
-    //todo generators for jsons + networkData + fromLoraPacket
+    static Message fromLora(std::string devId,LoraPacket in, uint8_t *key, uint16_t &seq, unsigned int dutyC);
+    static LoraPacket fromStiot(Message in,uint8_t *key, uint16_t &seq);
     static Message createSETR(std::string setrFile);
     static Message createKEYS(std::string devId,uint16_t seq,std::string key);
     static Message createKEYR(std::string devId);
     static Message createERR(uint32_t error,std::string description);
-    static Message createREGR(std::string devId,LoraPacket in);
-    static Message createRXL(std::string devId,LoraPacket in);
+    static Message createREGR(std::string devId,LoraPacket in, unsigned int dutyC);
     static Message fromFile(std::string file);
 };
 

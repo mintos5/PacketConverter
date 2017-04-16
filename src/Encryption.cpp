@@ -7,9 +7,10 @@
 #define DELTA 0x9e3779b9
 #define MX (((z>>5^y<<2) + (y>>3^z<<4)) ^ ((sum^y) + (key[(p&3)^e] ^ z)))
 
-void Encryption::encrypt(uint8_t *indata, unsigned int size, uint8_t *key) {
+void Encryption::encrypt(uint8_t *indata, unsigned int size, uint8_t *keyByte) {
     uint32_t *v = (uint32_t *) indata;
     int n = size/ sizeof(uint32_t);
+    uint32_t *key = (uint32_t *) keyByte;
 
     uint32_t y, z, sum;
     unsigned p, rounds, e;
@@ -28,9 +29,10 @@ void Encryption::encrypt(uint8_t *indata, unsigned int size, uint8_t *key) {
         } while (--rounds);
 }
 
-void Encryption::decrypt(uint8_t *indata,unsigned int size, uint8_t *key) {
+void Encryption::decrypt(uint8_t *indata,unsigned int size, uint8_t *keyByte) {
     uint32_t *v = (uint32_t *) indata;
     int n = size/ sizeof(uint32_t);
+    uint32_t *key = (uint32_t *) keyByte;
 
     uint32_t y, z, sum;
     unsigned p, rounds, e;

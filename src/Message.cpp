@@ -46,7 +46,7 @@ Message Message::fromJsonString(std::string message) {
     return out;
 }
 
-Message Message::fromLora(std::string devId,LoraPacket in, uint8_t *key, uint16_t &seq, unsigned int dutyC) {
+Message Message::createRXL(std::string devId, LoraPacket in, uint8_t *key, uint16_t &seq, unsigned int dutyC) {
     Message out;
     out.type = RXL;
     out.message["message_name"] = "RXL";
@@ -82,6 +82,7 @@ Message Message::fromLora(std::string devId,LoraPacket in, uint8_t *key, uint16_
     Encryption::decrypt(in.payload,in.size,key);
     uint8_t *dataPointer = in.payload;
     uint8_t dataSize = *dataPointer;
+    ++dataPointer;
     std::string dataB64 = Message::toBase64(dataPointer,dataSize);
     data["data"] = dataB64;
     dataPointer += dataSize;
@@ -131,10 +132,10 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
         uint8_t appDataSize = Base64::DecodedLength(appDataB64);
         *appLength = appDataSize;
         //convert data from Base64 string to regular data
-        Message::fromBase64(appDataB64,appLength,appDataSize);
+        Message::fromBase64(appDataB64,appLength+1,appDataSize);
 
         //set seq number
-        uint8_t *seqPointer = appLength + appDataSize;
+        uint8_t *seqPointer = appLength + 1 + appDataSize;
         uint16_t *sequnce = (uint16_t *) seqPointer;
         *sequnce = seq;
         //set mic data
@@ -143,8 +144,12 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
         *mic = Message::createCheck(networkLength);
         //add random data to fill block size
         uint8_t *padding = micPointer + sizeof(uint32_t);
+        //totalSize calculation
         int totalSize = 1 + networkDataSize + 1 +appDataSize + 2 + 4;
         int missingBytes = totalSize%BLOCK_SIZE;
+        if (missingBytes != 0){
+            missingBytes = BLOCK_SIZE - missingBytes;
+        }
         for (int i =0;i<missingBytes;i++){
             *padding = distr(eng);
             ++padding;
@@ -152,7 +157,7 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
         //set correct size of packaet
         out.size = totalSize + missingBytes + SESSION_KEY_SIZE;
         //encrypt data
-        Encryption::encrypt(networkLength,out.size,key);
+        Encryption::encrypt(networkLength,out.size - SESSION_KEY_SIZE,key);
     }
     else if (in.type == TXL){
         out.rfPower = in.getData().at("power");
@@ -175,10 +180,10 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
         uint8_t appDataSize = Base64::DecodedLength(appDataB64);
         *appLength = appDataSize;
         //convert data from Base64 string to regular data
-        Message::fromBase64(appDataB64,appLength,appDataSize);
+        Message::fromBase64(appDataB64,appLength+1,appDataSize);
 
         //set seq number
-        uint8_t *seqPointer = appLength + appDataSize;
+        uint8_t *seqPointer = appLength + 1 + appDataSize;
         uint16_t *sequnce = (uint16_t *) seqPointer;
         *sequnce = seq;
         //set mic data
@@ -187,8 +192,12 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
         *mic = Message::createCheck(networkLength);
         //add random data to fill block size
         uint8_t *padding = micPointer + sizeof(uint32_t);
+        //totalSize calculation
         int totalSize = 1 + networkDataSize + 1 +appDataSize + 2 + 4;
         int missingBytes = totalSize%BLOCK_SIZE;
+        if (missingBytes != 0){
+            missingBytes = BLOCK_SIZE - missingBytes;
+        }
         for (int i =0;i<missingBytes;i++){
             *padding = distr(eng);
             ++padding;
@@ -199,15 +208,15 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
         //encrypt data
         Encryption::encrypt(networkLength,out.size,key);
     }
-    //read data:
-    uint8_t *readPointer = out.payload;
-    for (int i=0;i<out.size;i++){
-        printf ("%02x ", *readPointer);
-        if( (i+1)%10 == 0){
-            printf("\n");
-        }
-        ++readPointer;
-    }
+    //read data: can be placed before encryption
+//    uint8_t *readPointer = out.payload;
+//    for (int i=0;i<out.size;i++){
+//        printf ("%02x ", *readPointer);
+//        if( (i+1)%10 == 0){
+//            printf("\n");
+//        }
+//        ++readPointer;
+//    }
     return out;
 }
 
@@ -232,6 +241,10 @@ uint8_t Message::createNetworkData(nlohmann::json paramArray, uint8_t *data,bool
     uint8_t *pointer = data;
     //full config with reduced overhead
     if (full){
+        //initial NULL byte
+        *pointer = 0;
+        ++pointer;
+        ++size;
         for (auto& param1 : paramArray) {
             uint8_t typeMultiply = 0;
             if (param1.find("type")!= param1.end()){
@@ -239,10 +252,10 @@ uint8_t Message::createNetworkData(nlohmann::json paramArray, uint8_t *data,bool
                 if (typeString=="NORMAL"){
                     typeMultiply = 0;
                 }
-                else if(typeString=="EMER"){
+                else if(typeString=="REG"){
                     typeMultiply = 1;
                 }
-                else if (typeString=="REG"){
+                else if (typeString=="EMER"){
                     typeMultiply = 2;
                 }
             }
@@ -272,13 +285,13 @@ uint8_t Message::createNetworkData(nlohmann::json paramArray, uint8_t *data,bool
                 int bandwith = param1.at("band");
                 uint8_t reducedBand = 0;
                 switch (bandwith){
-                    case 500:
+                    case 500000:
                         reducedBand = 0;
                         break;
-                    case 250:
+                    case 250000:
                         reducedBand = 1;
                         break;
-                    case 125:
+                    case 125000:
                         reducedBand = 2;
                         break;
                     default:
@@ -325,7 +338,7 @@ uint8_t Message::createNetworkData(nlohmann::json paramArray, uint8_t *data,bool
                 return 0;
             }
             if (param1.find("sf")!= param1.end()){
-                int spreadingFactor = param1.at("band");
+                int spreadingFactor = param1.at("sf");
                 uint8_t reducedSF = 0;
                 switch (spreadingFactor){
                     case 7:
@@ -366,10 +379,10 @@ uint8_t Message::createNetworkData(nlohmann::json paramArray, uint8_t *data,bool
                 if (typeString=="NORMAL"){
                     typeMultiply = 0;
                 }
-                else if(typeString=="EMER"){
+                else if(typeString=="REG"){
                     typeMultiply = 1;
                 }
-                else if (typeString=="REG"){
+                else if (typeString=="EMER"){
                     typeMultiply = 2;
                 }
             }
@@ -398,13 +411,13 @@ uint8_t Message::createNetworkData(nlohmann::json paramArray, uint8_t *data,bool
                 int bandwith = param1.at("band");
                 uint8_t reducedBand = 0;
                 switch (bandwith){
-                    case 500:
+                    case 500000:
                         reducedBand = 0;
                         break;
-                    case 250:
+                    case 250000:
                         reducedBand = 1;
                         break;
-                    case 125:
+                    case 125000:
                         reducedBand = 2;
                         break;
                     default:
@@ -448,7 +461,7 @@ uint8_t Message::createNetworkData(nlohmann::json paramArray, uint8_t *data,bool
             }
             if (param1.find("sf")!= param1.end()){
                 *pointer = NET_SF + (typeMultiply*NET_TYPE_DIFF);
-                int spreadingFactor = param1.at("band");
+                int spreadingFactor = param1.at("sf");
                 uint8_t reducedSF = 0;
                 switch (spreadingFactor){
                     case 7:
@@ -489,6 +502,8 @@ bool Message::isLoraPacketCorrect(uint8_t *in) {
 Message Message::createSETR(std::string setrFile) {
     Message out = Message::fromFile(setrFile);
     out.type = SETR;
+    std::cout << "debug out:" << std::endl;
+    std::cout << out.toStiot() << std::endl;
     return out;
 }
 

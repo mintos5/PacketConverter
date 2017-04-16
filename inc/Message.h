@@ -38,7 +38,7 @@ struct LorafiitFooter{
 struct LoraPacket{
     uint32_t frequency;
     uint8_t	rfChain;
-    uint16_t bandwidth;
+    uint32_t bandwidth;
     uint32_t datarate;
     std::string	coderate;
     float rssi;
@@ -46,7 +46,6 @@ struct LoraPacket{
     uint16_t size;          // size without devId and type
     uint8_t payload[251];
     uint8_t devId[DEV_ID_SIZE];
-    uint8_t dh[DH_SIZE];
     int8_t rfPower;
     LoraType type;
     LoraAck ack;
@@ -70,7 +69,7 @@ public:
     static void fromBase64(std::string data,uint8_t *outData,unsigned int outSize);
 
     static Message fromJsonString(std::string message);
-    static Message fromLora(std::string devId,LoraPacket in, uint8_t *key, uint16_t &seq, unsigned int dutyC);
+    static Message createRXL(std::string devId, LoraPacket in, uint8_t *key, uint16_t &seq, unsigned int dutyC);
     static LoraPacket fromStiot(Message in,uint8_t *key, uint16_t &seq);
     static Message createSETR(std::string setrFile);
     static Message createKEYS(std::string devId,uint16_t seq,std::string key);

@@ -5,6 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include <csignal>
+#include <Encryption.h>
 #include "ConcentratorController.h"
 
 ConcentratorController::ConcentratorController(const std::shared_ptr<MessageConverter> &converter,Message config)
@@ -381,15 +382,10 @@ LoraPacket ConcentratorController::fromHal(struct lgw_pkt_rx_s msg) {
     //move next to data or DH
     ++msgType;
     out.size = msg.size - 4;    //-4 for devId and type
-    //copy data or DHA
-    if (out.type == REGISTER_UP){
-        if (out.size==DH_SIZE){
-            std::copy(msgType,msgType + (out.size),out.dh);
-        }
-    }
-    else {
-        std::copy(msgType,msgType + (out.size),out.payload);
-    }
+    //copy data without devID and TypeAck
+    std::copy(msgType,msgType + (out.size),out.payload);
+
+    //sets
     out.frequency = msg.freq_hz;
     out.rssi = msg.rssi;
     out.snr = msg.snr;
@@ -398,31 +394,31 @@ LoraPacket ConcentratorController::fromHal(struct lgw_pkt_rx_s msg) {
             (std::chrono::system_clock::now().time_since_epoch());
     switch(msg.bandwidth) {
         case BW_500KHZ:
-            out.bandwidth = 500;
+            out.bandwidth = 500000;
             break;
         case BW_250KHZ:
-            out.bandwidth = 250;
+            out.bandwidth = 250000;
             break;
         case BW_125KHZ:
-            out.bandwidth = 125;
+            out.bandwidth = 125000;
             break;
         case BW_62K5HZ:
-            out.bandwidth = 625;
+            out.bandwidth = 625000;
             break;
         case BW_31K2HZ:
-            out.bandwidth = 312;
+            out.bandwidth = 312000;
             break;
         case BW_15K6HZ:
-            out.bandwidth = 156;
+            out.bandwidth = 156000;
             break;
         case BW_7K8HZ:
-            out.bandwidth = 78;
+            out.bandwidth = 780000;
             break;
         case BW_UNDEFINED:
-            out.bandwidth = 000;
+            out.bandwidth = 000000;
             break;
         default:
-            out.bandwidth = 000;
+            out.bandwidth = 000000;
     }
 
     switch (msg.datarate) {
@@ -473,9 +469,9 @@ struct lgw_pkt_tx_s ConcentratorController::toHal(LoraPacket msg) {
     memset(&out, 0, sizeof(out));
     //special settings
     switch (msg.bandwidth) {
-        case 125: out.bandwidth = BW_125KHZ; break;
-        case 250: out.bandwidth = BW_250KHZ; break;
-        case 500: out.bandwidth = BW_500KHZ; break;
+        case 125000: out.bandwidth = BW_125KHZ; break;
+        case 250000: out.bandwidth = BW_250KHZ; break;
+        case 500000: out.bandwidth = BW_500KHZ; break;
         default:
             std::cerr << "BAD BW" << std::endl;
             return out;
@@ -515,11 +511,13 @@ struct lgw_pkt_tx_s ConcentratorController::toHal(LoraPacket msg) {
     out.invert_pol = false;
     out.preamble = 8;
     //easy settings
-    out.size = msg.size + 4;    //+4 for devId and type
     out.freq_hz = msg.frequency;
     out.rf_power = msg.rfPower;
     out.rf_chain = msg.rfChain;
+    out.size = msg.size + 4;    //+4 for devId and type
+    //copy devID first
     std::copy(msg.devId,msg.devId + DEV_ID_SIZE,out.payload);
+    //set typeACK
     uint8_t *typeAck = out.payload + DEV_ID_SIZE;
     switch (msg.type){
         case REGISTER_DOWN:
@@ -544,7 +542,41 @@ struct lgw_pkt_tx_s ConcentratorController::toHal(LoraPacket msg) {
         default:
             *typeAck = *typeAck + LORAFIIT_NO_ACK;
     }
-    std::copy(msg.payload,msg.payload + (msg.size),out.payload);
+    //copy data
+    std::copy(msg.payload,msg.payload + (msg.size),typeAck+1);
     return out;
+}
+
+void ConcentratorController::testFunc() {
+    std::unique_lock<std::mutex> guard(this->queueMutex);
+    while(!serverData.empty()){
+        LoraPacket msg = serverData.front();
+        serverData.pop();
+
+        std::vector<uint8_t > key(16);
+        key[0] = 75;
+        key[1] = 75;
+        key[2] = 75;
+        key[3] = 75;
+        key[4] = 75;
+        key[5] = 75;
+        key[6] = 75;
+        key[7] = 75;
+        key[8] = 75;
+        key[9] = 75;
+        key[10] = 75;
+        key[11] = 75;
+        key[12] = 75;
+        key[13] = 75;
+        key[14] = 75;
+        key[15] = 75;
+        struct lgw_pkt_tx_s test = this->toHal(msg);
+        if (msg.type == REGISTER_DOWN){
+            Encryption::decrypt(msg.payload+16,msg.size-16,key.data());
+        }
+        else {
+            Encryption::decrypt(msg.payload,msg.size,key.data());
+        }
+    }
 }
 

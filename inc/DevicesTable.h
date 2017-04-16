@@ -26,7 +26,7 @@ struct EndDevice{
     uint16_t seq;
     uint32_t frequency;
     uint8_t	rfChain;
-    uint16_t bandwidth;
+    uint32_t bandwidth;
     uint32_t datarate;
     std::string	coderate;
     std::chrono::seconds timer;
@@ -47,6 +47,7 @@ public:
     bool isMine(std::string deviceId);
     uint8_t *getSessionKey(std::string deviceId);
     uint16_t getSeq(std::string deviceId);
+    uint8_t *getDh(std::string deviceId);
     bool setSeq(std::string deviceId,uint16_t seq);
     bool updateSessionkey(std::string deviceId,uint8_t sessionKey[SESSION_KEY_SIZE],uint16_t seq);   //will return bool if finded
     bool setSessionKeyCheck(std::string deviceId, bool set);

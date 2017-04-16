@@ -68,13 +68,20 @@ bool DevicesTable::updateMap(std::string deviceId,struct LoraPacket packet,uint1
     std::chrono::minutes currentTime = std::chrono::duration_cast< std::chrono::minutes >
             (std::chrono::system_clock::now().time_since_epoch());
     if (isInMap(deviceId)){
-        map[deviceId].frequency = packet.frequency;
-        map[deviceId].datarate = packet.datarate;
-        map[deviceId].bandwidth = packet.bandwidth;
-        map[deviceId].coderate = packet.coderate;
-        map[deviceId].rfChain = packet.rfChain;
-        map[deviceId].seq = seq;
-        map[deviceId].timer = currentTime;
+        map.erase(deviceId);
+        EndDevice endDevice;
+        endDevice.sessionKeyExists = false;
+        endDevice.sessionKeyCheck = false;
+        endDevice.myDevice = true;
+        endDevice.bandwidth = packet.bandwidth;
+        endDevice.coderate = packet.coderate;
+        endDevice.datarate = packet.datarate;
+        endDevice.frequency = packet.frequency;
+        endDevice.rfChain = packet.rfChain;
+        endDevice.seq = seq;
+        endDevice.timer = currentTime;
+        std::copy(packet.payload,packet.payload+SESSION_KEY_SIZE,endDevice.dha);
+        map[deviceId] = endDevice;
     }
     else {
         EndDevice endDevice;
@@ -88,7 +95,7 @@ bool DevicesTable::updateMap(std::string deviceId,struct LoraPacket packet,uint1
         endDevice.rfChain = packet.rfChain;
         endDevice.seq = seq;
         endDevice.timer = currentTime;
-        std::copy(packet.dh,packet.dh+SESSION_KEY_SIZE,endDevice.dha);
+        std::copy(packet.payload,packet.payload+SESSION_KEY_SIZE,endDevice.dha);
         map[deviceId] = endDevice;
     }
 }
@@ -211,6 +218,15 @@ bool DevicesTable::setSeq(std::string deviceId, uint16_t seq) {
         return true;
     }
     return false;
+}
+
+uint8_t *DevicesTable::getDh(std::string deviceId) {
+    std::lock_guard<std::mutex> guard(DevicesTable::mapMutex);
+    std::map<std::string, EndDevice>::iterator iterator;
+    if (isInMap(deviceId,iterator)){
+        return iterator->second.dha;
+    }
+    return nullptr;
 }
 
 std::mutex DevicesTable::mapMutex;

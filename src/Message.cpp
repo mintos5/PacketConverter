@@ -86,16 +86,21 @@ Message Message::createRXL(std::string devId, LoraPacket in, uint8_t *key, uint1
     std::string dataB64 = Message::toBase64(dataPointer,dataSize);
     data["data"] = dataB64;
     dataPointer += dataSize;
-    uint16_t *seqNum = (uint16_t *) dataPointer;
+    uint8_t *seqByte = dataPointer;
+    uint16_t *seqNum = (uint16_t *) seqByte;
     data["seq"] = *seqNum;
-    if (isLoraPacketCorrect(in.payload)){
+    seq = *seqNum;
+    uint8_t *micByte = seqByte + sizeof (uint16_t);
+    uint32_t *mic = (uint32_t *) micByte;
+    //check mic, size = data_len + data + seq size
+    if (isLoraPacketCorrect(in.payload,1+in.payload[0]+2,*mic)){
         out.micOk = true;
+        std::cout << "debug out:" << std::endl;
+        std::cout << out.toStiot() << std::endl;
     }
     else {
         out.micOk = false;
     }
-    std::cout << "debug out:" << std::endl;
-    std::cout << out.toStiot() << std::endl;
     return out;
 }
 
@@ -141,7 +146,7 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
         //set mic data
         uint8_t *micPointer = seqPointer + sizeof(uint16_t);
         u_int32_t *mic = (u_int32_t *) micPointer;
-        *mic = Message::createCheck(networkLength);
+        *mic = Message::createCheck(networkLength,1 + networkDataSize + 1 +appDataSize + 2);
         //add random data to fill block size
         uint8_t *padding = micPointer + sizeof(uint32_t);
         //totalSize calculation
@@ -189,7 +194,7 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
         //set mic data
         uint8_t *micPointer = seqPointer + sizeof(uint16_t);
         u_int32_t *mic = (u_int32_t *) micPointer;
-        *mic = Message::createCheck(networkLength);
+        *mic = Message::createCheck(networkLength,1 + networkDataSize + 1 +appDataSize + 2);
         //add random data to fill block size
         uint8_t *padding = micPointer + sizeof(uint32_t);
         //totalSize calculation
@@ -494,9 +499,12 @@ uint8_t Message::createNetworkData(nlohmann::json paramArray, uint8_t *data,bool
     return size;
 }
 
-bool Message::isLoraPacketCorrect(uint8_t *in) {
-    //todo MIC control
-    return true;
+bool Message::isLoraPacketCorrect(uint8_t *in,int size,uint32_t compare) {
+    uint32_t result = Message::createCheck(in,size);
+    if (result==compare){
+        return true;
+    }
+    return false;
 }
 
 Message Message::createSETR(std::string setrFile) {
@@ -578,7 +586,17 @@ void Message::fromBase64(std::string data, uint8_t *outData,unsigned int outSize
     Base64::Decode(data.c_str(), data.size(), (char *) outData, outSize);
 }
 
-u_int32_t Message::createCheck(uint8_t *data) {
-    //todo mic check
-    return 0;
+uint32_t Message::createCheck(uint8_t *data,int size) {
+    uint32_t hash = 0;
+    for (int i = 0; i < size; i++)
+    {
+        hash += data[i];
+        hash += (hash << 10);
+        hash ^= (hash >> 6);
+    }
+
+    hash += (hash << 3);
+    hash ^= (hash >> 11);
+    hash += (hash << 15);
+    return hash;
 }

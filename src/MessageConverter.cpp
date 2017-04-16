@@ -386,6 +386,8 @@ void MessageConverter::timerFunction() {
             test2.ack = MANDATORY_ACK;
             char dataTest2[] = "ALoRaWan12CD1234";
             dataTest2[0] = 9;
+            uint32_t *mic = (uint32_t * ) & dataTest2[12];
+            *mic = Message::createCheck((uint8_t *) dataTest2, 12);
             Encryption::encrypt((uint8_t *) dataTest2, 16, key.data());
             std::copy(dataTest2,dataTest2+16,test2.payload);
             test2.size = 16;
@@ -395,11 +397,10 @@ void MessageConverter::timerFunction() {
 
 //            std::this_thread::sleep_for(std::chrono::seconds(6));
 //            this->addToQueue(Message::fromFile("tests/keya.json"));
-
 //            concentrator->testFunc();
-//            this->addToQueue(Message::fromFile("tests/txl.json"));
-//            std::this_thread::sleep_for(std::chrono::seconds(2));
-//            concentrator->testFunc();
+            this->addToQueue(Message::fromFile("tests/txl.json"));
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            concentrator->testFunc();
 
 
             oneTime = false;

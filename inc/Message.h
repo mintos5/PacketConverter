@@ -53,11 +53,13 @@ struct LoraPacket{
 };
 
 class Message {
+
+public:
     //pomocne funkcie
     static uint8_t createNetworkData(nlohmann::json paramArray, uint8_t *data,bool full);
-    static bool isLoraPacketCorrect(uint8_t *in);
-    static u_int32_t createCheck(uint8_t *data);
-public:
+    static bool isLoraPacketCorrect(uint8_t *in,int size,uint32_t compare);
+    static uint32_t createCheck(uint8_t *data, int size);
+
     MessageType type;
     nlohmann::json message;
     std::string devId;

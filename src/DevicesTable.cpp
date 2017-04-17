@@ -3,6 +3,7 @@
 //
 
 #include <cstring>
+#include <algorithm>
 #include "DevicesTable.h"
 
 
@@ -129,7 +130,10 @@ void DevicesTable::updateByTimer(std::chrono::seconds currentTime) {
 }
 
 void DevicesTable::resetDutyCycle() {
-
+    //60*60*1000/1000 for 0.1%
+    this->onAir0 = 60*60;
+    this->onAir1 = 60*60*10;
+    this->onAir10 = 60*60*100;
 }
 
 uint8_t *DevicesTable::getSessionKey(std::string deviceId) {
@@ -175,14 +179,58 @@ uint16_t DevicesTable::getSeq(std::string deviceId) {
     return 0;
 }
 
-uint8_t DevicesTable::remainingDutyCycle(std::string deviceId) {
-    return 20;
+long DevicesTable::remainingDutyCycle(std::string deviceId) {
+    std::lock_guard<std::mutex> guard(DevicesTable::mapMutex);
+    std::map<std::string, EndDevice>::iterator iterator;
+    if (isInMap(deviceId,iterator)){
+        long currentOnAirCounter;
+        if (iterator->second.frequency >= 863000000 && iterator->second.frequency < 868000000){
+            currentOnAirCounter = this->onAir0;
+        }
+        else if (iterator->second.frequency >= 868000000 && iterator->second.frequency <= 868600000){
+            currentOnAirCounter = this->onAir1;
+        }
+        else if (iterator->second.frequency >= 868700000 && iterator->second.frequency <= 869200000){
+            currentOnAirCounter = this->onAir0;
+        }
+        else if (iterator->second.frequency >= 869400000 && iterator->second.frequency <= 869650000){
+            currentOnAirCounter = this->onAir10;
+        }
+        else {
+            currentOnAirCounter = this->onAir0;
+        }
+        return currentOnAirCounter;
+    }
+    return 0;
 }
 
 bool DevicesTable::reduceDutyCycle(std::string deviceId, uint8_t messageSize) {
     std::lock_guard<std::mutex> guard(DevicesTable::mapMutex);
     std::map<std::string, EndDevice>::iterator iterator;
     if (isInMap(deviceId,iterator)){
+        long *currentOnAirCounter;
+        if (iterator->second.frequency >= 863000000 && iterator->second.frequency < 868000000){
+            currentOnAirCounter = &onAir0;
+        }
+        else if (iterator->second.frequency >= 868000000 && iterator->second.frequency <= 868600000){
+            currentOnAirCounter = &onAir1;
+        }
+        else if (iterator->second.frequency >= 868700000 && iterator->second.frequency <= 869200000){
+            currentOnAirCounter = &onAir0;
+        }
+        else if (iterator->second.frequency >= 869400000 && iterator->second.frequency <= 869650000){
+            currentOnAirCounter = &onAir10;
+        }
+        else {
+            currentOnAirCounter = &onAir0;
+        }
+        //calculate time on air
+        long messageTime = calculateDutyCycle(iterator,messageSize);
+        //if bigger return false
+        if (messageTime > *currentOnAirCounter){
+            return false;
+        }
+        *currentOnAirCounter = *currentOnAirCounter - messageTime;
         return true;
     }
     return false;
@@ -242,6 +290,39 @@ bool DevicesTable::addDevice(std::string deviceId, struct LoraPacket packet, uin
         std::copy(packet.payload,packet.payload+DH_SESSION_KEY_SIZE,endDevice.dha);
         map[deviceId] = endDevice;
     }
+}
+
+long DevicesTable::calculateDutyCycle(std::map<std::string, EndDevice>::iterator &iterator, uint8_t payloadSize) {
+    double tSym = pow(2,iterator->second.datarate);
+    tSym = tSym/(iterator->second.bandwidth * 1000);
+    double tPreamble = (8+4.25)*tSym;
+    int coderate = 5;
+    if (iterator->second.coderate=="4/5"){
+        coderate = 5;
+    }
+    else if (iterator->second.coderate=="4/6"){
+        coderate = 6;
+    }
+    else if (iterator->second.coderate=="4/7"){
+        coderate = 7;
+    }
+    else if (iterator->second.coderate=="4/8"){
+        coderate = 8;
+    }
+    else {
+        coderate = 5;
+    }
+    int dataRateOptimization = 0;
+    if (iterator->second.datarate == 11 || iterator->second.datarate == 12){
+        dataRateOptimization = 1;
+    }
+    double ceil1 = 8*payloadSize - 4*iterator->second.datarate + 28 +16 - 20;
+    double ceil2 = 4*(iterator->second.datarate-2*dataRateOptimization);
+    ceil1 = ceil(ceil1/ceil2);
+    double zero = 0;
+    double numSymbols = std::max(ceil1*coderate,zero);
+    double tPayload = numSymbols*tSym;
+    return tPreamble+tPayload;
 }
 
 std::mutex DevicesTable::mapMutex;

@@ -5,7 +5,7 @@
 #ifndef PACKETCONVERTER_DEVICESTABLE_H
 #define PACKETCONVERTER_DEVICESTABLE_H
 #define DH_SESSION_KEY_SIZE 16
-#define TIME_INTERVAL 60
+#define TIME_INTERVAL 3600
 #define FLUSH_DEVICE 86400
 
 #include <chrono>
@@ -39,6 +39,11 @@ class DevicesTable {
     bool isInMap(std::string deviceId);
     bool isInMap(std::string deviceId, std::map<std::string,EndDevice>::iterator &iterator);
     std::chrono::seconds time;
+    //counter for freq with 0.1% dutty cycle
+    long onAir0;
+    long onAir1;
+    long onAir10;
+
 public:
     bool setPacket(std::string deviceId,struct LoraPacket &packet);
     bool removeFromMap(std::string deviceId);   //will return if finded...
@@ -55,9 +60,8 @@ public:
     bool hasSessionKeyCheck(std::string deviceId);
     void updateByTimer(std::chrono::seconds currentTime);
 
-
-    //todo add functions for dutty cyckle check and more
-    uint8_t remainingDutyCycle(std::string deviceId);
+    long remainingDutyCycle(std::string deviceId);
+    long calculateDutyCycle(std::map<std::string, EndDevice>::iterator &iterator, uint8_t payloadSize);
     bool reduceDutyCycle(std::string deviceId,uint8_t messageSize);
     void resetDutyCycle();
     static lgw_pkt_tx_s setTestParams();

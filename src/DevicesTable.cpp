@@ -63,40 +63,18 @@ bool DevicesTable::removeFromMap(std::string deviceId) {
     return false;
 }
 
-bool DevicesTable::updateMap(std::string deviceId,struct LoraPacket packet,uint16_t seq) {
+bool DevicesTable::updateDevice(std::string deviceId, struct LoraPacket packet, uint16_t seq) {
     std::lock_guard<std::mutex> guard(DevicesTable::mapMutex);
     std::chrono::minutes currentTime = std::chrono::duration_cast< std::chrono::minutes >
             (std::chrono::system_clock::now().time_since_epoch());
     if (isInMap(deviceId)){
-        map.erase(deviceId);
-        EndDevice endDevice;
-        endDevice.sessionKeyExists = false;
-        endDevice.sessionKeyCheck = false;
-        endDevice.myDevice = true;
-        endDevice.bandwidth = packet.bandwidth;
-        endDevice.coderate = packet.coderate;
-        endDevice.datarate = packet.datarate;
-        endDevice.frequency = packet.frequency;
-        endDevice.rfChain = packet.rfChain;
-        endDevice.seq = seq;
-        endDevice.timer = currentTime;
-        std::copy(packet.payload,packet.payload+SESSION_KEY_SIZE,endDevice.dha);
-        map[deviceId] = endDevice;
-    }
-    else {
-        EndDevice endDevice;
-        endDevice.sessionKeyExists = false;
-        endDevice.sessionKeyCheck = false;
-        endDevice.myDevice = true;
-        endDevice.bandwidth = packet.bandwidth;
-        endDevice.coderate = packet.coderate;
-        endDevice.datarate = packet.datarate;
-        endDevice.frequency = packet.frequency;
-        endDevice.rfChain = packet.rfChain;
-        endDevice.seq = seq;
-        endDevice.timer = currentTime;
-        std::copy(packet.payload,packet.payload+SESSION_KEY_SIZE,endDevice.dha);
-        map[deviceId] = endDevice;
+        map[deviceId].frequency = packet.frequency;
+        map[deviceId].datarate = packet.datarate;
+        map[deviceId].bandwidth = packet.bandwidth;
+        map[deviceId].coderate = packet.coderate;
+        map[deviceId].rfChain = packet.rfChain;
+        map[deviceId].seq = seq;
+        map[deviceId].timer = currentTime;
     }
 }
 
@@ -115,7 +93,7 @@ bool DevicesTable::updateSessionkey(std::string deviceId, uint8_t *sessionKey,ui
     std::lock_guard<std::mutex> guard(DevicesTable::mapMutex);
     std::map<std::string, EndDevice>::iterator iterator;
     if (isInMap(deviceId,iterator)){
-        std::copy(sessionKey,sessionKey+SESSION_KEY_SIZE,iterator->second.sessionKey);
+        std::copy(sessionKey,sessionKey+DH_SESSION_KEY_SIZE,iterator->second.sessionKey);
         iterator->second.sessionKeyExists = true;
         iterator->second.sessionKeyCheck = false;
         iterator->second.seq = seq;
@@ -227,6 +205,43 @@ uint8_t *DevicesTable::getDh(std::string deviceId) {
         return iterator->second.dha;
     }
     return nullptr;
+}
+
+bool DevicesTable::addDevice(std::string deviceId, struct LoraPacket packet, uint16_t seq) {
+    std::lock_guard<std::mutex> guard(DevicesTable::mapMutex);
+    std::chrono::minutes currentTime = std::chrono::duration_cast< std::chrono::minutes >
+            (std::chrono::system_clock::now().time_since_epoch());
+    if (isInMap(deviceId)){
+        map.erase(deviceId);
+        EndDevice endDevice;
+        endDevice.sessionKeyExists = false;
+        endDevice.sessionKeyCheck = false;
+        endDevice.myDevice = true;
+        endDevice.bandwidth = packet.bandwidth;
+        endDevice.coderate = packet.coderate;
+        endDevice.datarate = packet.datarate;
+        endDevice.frequency = packet.frequency;
+        endDevice.rfChain = packet.rfChain;
+        endDevice.seq = seq;
+        endDevice.timer = currentTime;
+        std::copy(packet.payload,packet.payload+DH_SESSION_KEY_SIZE,endDevice.dha);
+        map[deviceId] = endDevice;
+    }
+    else {
+        EndDevice endDevice;
+        endDevice.sessionKeyExists = false;
+        endDevice.sessionKeyCheck = false;
+        endDevice.myDevice = true;
+        endDevice.bandwidth = packet.bandwidth;
+        endDevice.coderate = packet.coderate;
+        endDevice.datarate = packet.datarate;
+        endDevice.frequency = packet.frequency;
+        endDevice.rfChain = packet.rfChain;
+        endDevice.seq = seq;
+        endDevice.timer = currentTime;
+        std::copy(packet.payload,packet.payload+DH_SESSION_KEY_SIZE,endDevice.dha);
+        map[deviceId] = endDevice;
+    }
 }
 
 std::mutex DevicesTable::mapMutex;

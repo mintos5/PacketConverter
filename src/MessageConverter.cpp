@@ -9,6 +9,7 @@
 #include "MessageConverter.h"
 #include "ConcentratorController.h"
 #include "ConnectionController.h"
+#define P 0xffffffffffffffc5ull
 
 int MessageConverter::start() {
     this->fromLoraFiber = std::thread(&MessageConverter::fromLora,this);
@@ -156,15 +157,24 @@ void MessageConverter::fromStiot() {
             }
             else if (in.type==REGA){
                 if (devicesTable.isMine(in.devId)){
-                    //todo generate session key + random number from pre_shared key extract data
                     nlohmann::json data = in.getData();
                     if (data.find("sh_key") == data.end()){
                         //bad REGA STIOT message
                         continue;
                     }
                     std::string preSharedKey = data.at("sh_key");
-                    //uint64_t dhb = DiffieHellman::getDHB(7,2,128);
-                    //uint64_t ses1 = DiffieHellman::getSessionKey()
+                    int preKeySize = Base64::DecodedLength(preSharedKey);
+                    std::vector<uint8_t > preKeyVector(preKeySize);
+                    Message::fromBase64(preSharedKey,preKeyVector.data(),preKeySize);
+
+                    std::vector<uint8_t > privateKey(DH_SESSION_KEY_SIZE);
+                    std::vector<uint8_t > publicKey(DH_SESSION_KEY_SIZE);
+                    std::vector<uint8_t > sessionKey(DH_SESSION_KEY_SIZE);
+
+                    DiffieHellman::getDHB(preKeyVector.data(),publicKey.data(),privateKey.data());
+                    DiffieHellman::getSessionKey(preKeyVector.data(),devicesTable.getDh(in.devId)
+                            ,privateKey.data(),sessionKey.data());
+                    //testing key vector
                     std::vector<uint8_t > key(16);
                     key[0] = 75;
                     key[1] = 75;
@@ -182,13 +192,18 @@ void MessageConverter::fromStiot() {
                     key[13] = 75;
                     key[14] = 75;
                     key[15] = 75;
+                    //set correct new session key and default (0) sequence Number
+                    //todo start using session key
                     devicesTable.updateSessionkey(in.devId, key.data(),0);
                     //message is ready
                     uint16_t seqNum;
                     LoraPacket out = Message::fromStiot(in,devicesTable.getSessionKey(in.devId),seqNum);
+                    //set new seq number to table
                     devicesTable.setSeq(in.devId,seqNum);
+                    //set packet to correct freq, etc.
                     devicesTable.setPacket(in.devId,out);
-                    //todo set dhb to packet payload, data are reserved
+                    //set DHB to packet
+                    std::copy(publicKey.data(),publicKey.data() + DH_SESSION_KEY_SIZE,out.payload);
                     concentrator->addToQueue(out);
                 }
             }
@@ -247,7 +262,7 @@ void MessageConverter::fromLora() {
         for (auto& element: inVector){
             std::string devId = Message::toBase64(element.devId,DEV_ID_SIZE);
             if (element.type==REGISTER_UP){
-                this->devicesTable.updateMap(devId,element,0);
+                this->devicesTable.addDevice(devId, element, 0);
                 connection->addToQueue(Message::createREGR(devId,element,this->devicesTable.remainingDutyCycle(devId)));
             }
             else if (element.type==DATA_UP || element.type==HELLO_UP || element.type == EMERGENCY_UP){
@@ -256,12 +271,12 @@ void MessageConverter::fromLora() {
                     out = Message::createRXL(devId, element, devicesTable.getSessionKey(devId), seqNum,
                                              this->devicesTable.remainingDutyCycle(devId));
                     if (out.micOk){
-                        devicesTable.setSeq(devId,seqNum);
+                        this->devicesTable.updateDevice(devId, element, seqNum);
                         outVector.push_back(out);
                         if (!devicesTable.hasSessionKeyCheck(devId)){
                             devicesTable.setSessionKeyCheck(devId,true);
                             //send KEYS message
-                            std::string keyString = Message::toBase64(devicesTable.getSessionKey(devId),SESSION_KEY_SIZE);
+                            std::string keyString = Message::toBase64(devicesTable.getSessionKey(devId),DH_SESSION_KEY_SIZE);
                             connection->addToQueue(Message::createKEYS(devId,devicesTable.getSeq(devId),keyString));
                         }
                     }
@@ -317,6 +332,31 @@ void MessageConverter::timerFunction() {
         if (oneTime){
             //todo tests area
 
+            std::vector<uint8_t > preKeyVector(DH_SESSION_KEY_SIZE+8);
+            for (int i=0;i<3;i++){
+                uint8_t *pointerPreKey = preKeyVector.data() + i*sizeof(uint64_t);
+                uint64_t *pointer = (uint64_t *) pointerPreKey;
+                *pointer = P;
+                if (i==2){
+                    *pointer = 2;
+                }
+            }
+
+            std::vector<uint8_t > privateKeyA(DH_SESSION_KEY_SIZE);
+            std::vector<uint8_t > publicKeyA(DH_SESSION_KEY_SIZE);
+            std::vector<uint8_t > sessionKeyA(DH_SESSION_KEY_SIZE);
+            DiffieHellman::getDHB(preKeyVector.data(),publicKeyA.data(),privateKeyA.data());
+
+            std::vector<uint8_t > privateKeyB(DH_SESSION_KEY_SIZE);
+            std::vector<uint8_t > publicKeyB(DH_SESSION_KEY_SIZE);
+            std::vector<uint8_t > sessionKeyB(DH_SESSION_KEY_SIZE);
+
+            DiffieHellman::getDHB(preKeyVector.data(),publicKeyB.data(),privateKeyB.data());
+            //generate session on B side
+            DiffieHellman::getSessionKey(preKeyVector.data(),publicKeyA.data(),privateKeyB.data(),sessionKeyB.data());
+            //generate session on A side
+            DiffieHellman::getSessionKey(preKeyVector.data(),publicKeyB.data(),privateKeyA.data(),sessionKeyA.data());
+
             //testing addition to table
             LoraPacket test1;
             test1.frequency = 868000000;
@@ -329,29 +369,14 @@ void MessageConverter::timerFunction() {
             test1.devId[2] = 65;
             test1.type = REGISTER_UP;
             test1.ack = MANDATORY_ACK;
-            test1.payload[0] = 22;
-            test1.payload[1] = 22;
-            test1.payload[2] = 22;
-            test1.payload[3] = 22;
-            test1.payload[4] = 22;
-            test1.payload[5] = 22;
-            test1.payload[6] = 22;
-            test1.payload[7] = 22;
-            test1.payload[8] = 22;
-            test1.payload[9] = 22;
-            test1.payload[10] = 22;
-            test1.payload[11] = 22;
-            test1.payload[12] = 22;
-            test1.payload[13] = 22;
-            test1.payload[14] = 22;
-            test1.payload[15] = 22;
+            std::copy(publicKeyA.data(),publicKeyA.data()+DH_SESSION_KEY_SIZE,test1.payload);
             test1.size = 16;
             this->addToQueue(test1);
 
 
 
             this->addToQueue(Message::fromFile("tests/rega.json"));
-            std::this_thread::sleep_for(std::chrono::seconds(5));
+            std::this_thread::sleep_for(std::chrono::seconds(10));
 
 
 

@@ -108,7 +108,7 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
     LoraPacket out;
     //random number generator
     std::random_device rd; // obtain a random number from hardware
-    std::mt19937 eng(rd()); // seed the generator
+    std::mt19937 gen(rd()); // seed the generator
     std::uniform_int_distribution<> distr(0, 65535); // define the range
 
     //create from base64 string dev_id data
@@ -120,10 +120,10 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
         out.ack = MANDATORY_ACK;
         out.type = REGISTER_DOWN;
         //get random seq number
-        seq = distr(eng);
+        seq = distr(gen);
 
         //get pointer to network data size with space for DH key
-        uint8_t *networkLength = out.payload + SESSION_KEY_SIZE;
+        uint8_t *networkLength = out.payload + DH_SESSION_KEY_SIZE;
         //calculate networkData size and create network data
         uint8_t networkDataSize = Message::createNetworkData(in.getData().at("net_data"),networkLength+1, true);
         //write networkData size to pointer
@@ -156,13 +156,13 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
             missingBytes = BLOCK_SIZE - missingBytes;
         }
         for (int i =0;i<missingBytes;i++){
-            *padding = distr(eng);
+            *padding = distr(gen);
             ++padding;
         }
         //set correct size of packaet
-        out.size = totalSize + missingBytes + SESSION_KEY_SIZE;
+        out.size = totalSize + missingBytes + DH_SESSION_KEY_SIZE;
         //encrypt data
-        Encryption::encrypt(networkLength,out.size - SESSION_KEY_SIZE,key);
+        Encryption::encrypt(networkLength,out.size - DH_SESSION_KEY_SIZE,key);
     }
     else if (in.type == TXL){
         out.rfPower = in.getData().at("power");
@@ -204,7 +204,7 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
             missingBytes = BLOCK_SIZE - missingBytes;
         }
         for (int i =0;i<missingBytes;i++){
-            *padding = distr(eng);
+            *padding = distr(gen);
             ++padding;
         }
         //set correct size of packaet
@@ -587,6 +587,7 @@ void Message::fromBase64(std::string data, uint8_t *outData,unsigned int outSize
 }
 
 uint32_t Message::createCheck(uint8_t *data,int size) {
+    //One-at-a-Time hash
     uint32_t hash = 0;
     for (int i = 0; i < size; i++)
     {

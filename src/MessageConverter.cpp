@@ -123,8 +123,9 @@ void MessageConverter::fromStiot() {
         Message in;
         //just gen one message and send
         if (this->getFromStiotData(in,guardData)){
-            std::cout << "new STIOT data" << std::endl;
+            std::cout << "new STIOT data:";
             if (in.type==SETA){
+                std::cout << "SETA" << std::endl;
                 //todo uncomment starting
                 if (oneTime){
                     //need to turn off and turn on
@@ -139,6 +140,7 @@ void MessageConverter::fromStiot() {
                 }
             }
             else if (in.type==KEYA){
+                std::cout << "KEYA" << std::endl;
                 if (devicesTable.isMine(in.devId)){
                     //get SEQ number from json
                     uint16_t seq = in.getData().at("seq");
@@ -148,7 +150,7 @@ void MessageConverter::fromStiot() {
                     std::vector<uint8_t > keyVector(dataSize);
                     Message::fromBase64(keyB64,keyVector.data(),dataSize);
                     //update data
-                    devicesTable.updateSessionkey(in.devId,keyVector.data(),seq);
+                    devicesTable.setSessionkey(in.devId, keyVector.data(), seq);
                     //notify waiting thread
                     std::unique_lock<std::mutex> loraGuardData(this->loraDataMutex);
                     loraGuardData.unlock();
@@ -156,6 +158,7 @@ void MessageConverter::fromStiot() {
                 }
             }
             else if (in.type==REGA){
+                std::cout << "REGA" << std::endl;
                 if (devicesTable.isMine(in.devId)){
                     nlohmann::json data = in.getData();
                     if (data.find("sh_key") == data.end()){
@@ -194,7 +197,7 @@ void MessageConverter::fromStiot() {
                     key[15] = 75;
                     //set correct new session key and default (0) sequence Number
                     //todo start using session key
-                    devicesTable.updateSessionkey(in.devId, key.data(),0);
+                    devicesTable.setSessionkey(in.devId, key.data(), 0);
                     //message is ready
                     uint16_t seqNum;
                     LoraPacket out = Message::fromStiot(in,devicesTable.getSessionKey(in.devId),seqNum);
@@ -204,10 +207,17 @@ void MessageConverter::fromStiot() {
                     devicesTable.setPacket(in.devId,out);
                     //set DHB to packet
                     std::copy(publicKey.data(),publicKey.data() + DH_SESSION_KEY_SIZE,out.payload);
-                    concentrator->addToQueue(out);
+                    if (devicesTable.reduceDutyCycle(in.devId,out.size+4)){
+                        concentrator->addToQueue(out);
+                    }
+                    else {
+                        //todo send error messages
+                        std::cerr << "no enough time to air" << std::endl;
+                    }
                 }
             }
             else if (in.type==TXL){
+                std::cout << "TXL" << std::endl;
                 if (devicesTable.isMine(in.devId)){
                     if (devicesTable.hasSessionKey(in.devId)){
                         uint16_t seqNum;
@@ -215,7 +225,13 @@ void MessageConverter::fromStiot() {
                         LoraPacket out = Message::fromStiot(in,devicesTable.getSessionKey(in.devId),seqNum);
                         devicesTable.setSeq(in.devId,seqNum);
                         devicesTable.setPacket(in.devId,out);
-                        concentrator->addToQueue(out);
+                        if (devicesTable.reduceDutyCycle(in.devId,out.size+4)){
+                            concentrator->addToQueue(out);
+                        }
+                        else {
+                            //todo send error messages
+                            std::cerr << "no enough time to air" << std::endl;
+                        }
                     }
                     else {
                         //send KEYR to server and discard message

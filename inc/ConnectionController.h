@@ -24,27 +24,24 @@ class ConnectionController {
 
     std::shared_ptr<MessageConverter> converter;
 
-    void send();
-    void process();
     bool processRun = true;
     std::mutex processMutex;
     std::thread fiberProcess;
-
     std::queue<Message> endDeviceData;
     std::mutex queueMutex;
 
-public:
-    bool connected = false;
+    void send();
+    void process();
 
+public:
+    ConnectionController(const std::shared_ptr<MessageConverter> &converter,Message config);
     int start();
-    int startOffline();
     void join();
     void stop();
     void addToQueue(Message message);
     void addBulk(std::vector<Message> vector);
 
-    ConnectionController(const std::shared_ptr<MessageConverter> &converter,Message config);
-
+    bool connected = false;
 };
 
 

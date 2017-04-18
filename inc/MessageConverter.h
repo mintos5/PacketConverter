@@ -49,7 +49,6 @@ class MessageConverter {
 
 public:
     int start();
-    int startOffline();
     void stop();
     void join();
     void addToQueue(Message message);

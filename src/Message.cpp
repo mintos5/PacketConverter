@@ -3,12 +3,40 @@
 //
 
 #include <cstdint>
-#include <Message.h>
 #include <fstream>
 #include <base64.h>
 #include <Encryption.h>
 #include "DevicesTable.h"
 
+
+std::string Message::toStiot() {
+    return this->message.dump();
+}
+
+nlohmann::json Message::getData() {
+    return this->message.at("message_body");
+}
+
+std::string Message::toBase64(uint8_t *data, unsigned int size) {
+    int charSize = Base64::EncodedLength(size);
+    std::vector<char> devIdChar(charSize);
+    Base64::Encode((const char *) data, size, devIdChar.data(), charSize);
+    devIdChar.push_back(0);
+    std::string outData = devIdChar.data();
+    return outData;
+}
+
+void Message::fromBase64(std::string data, uint8_t *outData,unsigned int outSize) {
+    Base64::Decode(data.c_str(), data.size(), (char *) outData, outSize);
+}
+
+Message Message::fromFile(std::string file) {
+    std::ifstream input(file.c_str());
+    std::stringstream sstr;
+    while(input >> sstr.rdbuf());
+    std::string seta = sstr.str();
+    return Message::fromJsonString(seta);
+}
 
 Message Message::fromJsonString(std::string message) {
     Message out;
@@ -43,64 +71,6 @@ Message Message::fromJsonString(std::string message) {
         }
     }
     //std::cout << test.dump(4) << std::endl;
-    return out;
-}
-
-Message Message::createRXL(std::string devId, LoraPacket in, uint8_t *key, uint16_t &seq, unsigned int dutyC) {
-    Message out;
-    out.type = RXL;
-    out.message["message_name"] = "RXL";
-    out.message["message_body"] = nlohmann::json::object();
-    nlohmann::json &data = out.message.at("message_body");
-    data["time"] = in.time.count();
-    data["dev_id"] = devId;
-    data["sf"] = in.datarate;
-    data["cr"] = in.coderate;
-    data["band"] = in.bandwidth;
-    data["rssi"] = in.rssi;
-    data["snr"] = in.snr;
-    data["duty_c"] = dutyC;
-    if (in.type == DATA_UP || in.type == HELLO_UP){
-        data["conf_need"] = false;
-    }
-    else if (in.type == EMERGENCY_UP){
-        data["conf_need"] = true;
-    }
-    std::string ackString;
-    if (in.ack==NO_ACK){
-        ackString = "NO_ACK";
-    }
-    else if (in.ack==OPTIONAL_ACK){
-        ackString = "OPTIONAL_ACK";
-    }
-    else if (in.ack==MANDATORY_ACK){
-        ackString = "MANDATORY_ACK";
-    }
-    data["ack"] = ackString;
-
-
-    Encryption::decrypt(in.payload,in.size,key);
-    uint8_t *dataPointer = in.payload;
-    uint8_t dataSize = *dataPointer;
-    ++dataPointer;
-    std::string dataB64 = Message::toBase64(dataPointer,dataSize);
-    data["data"] = dataB64;
-    dataPointer += dataSize;
-    uint8_t *seqByte = dataPointer;
-    uint16_t *seqNum = (uint16_t *) seqByte;
-    data["seq"] = *seqNum;
-    seq = *seqNum;
-    uint8_t *micByte = seqByte + sizeof (uint16_t);
-    uint32_t *mic = (uint32_t *) micByte;
-    //check mic, size = data_len + data + seq size
-    if (isLoraPacketCorrect(in.payload,1+in.payload[0]+2,*mic)){
-        out.micOk = true;
-        std::cout << "debug out:" << std::endl;
-        std::cout << out.toStiot() << std::endl;
-    }
-    else {
-        out.micOk = false;
-    }
     return out;
 }
 
@@ -225,20 +195,128 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
     return out;
 }
 
-std::string Message::toStiot() {
-    return this->message.dump();
+Message Message::createRXL(std::string devId, LoraPacket in, uint8_t *key, uint16_t &seq, unsigned int dutyC) {
+    Message out;
+    out.type = RXL;
+    out.message["message_name"] = "RXL";
+    out.message["message_body"] = nlohmann::json::object();
+    nlohmann::json &data = out.message.at("message_body");
+    data["time"] = in.time.count();
+    data["dev_id"] = devId;
+    data["sf"] = in.datarate;
+    data["cr"] = in.coderate;
+    data["band"] = in.bandwidth;
+    data["rssi"] = in.rssi;
+    data["snr"] = in.snr;
+    data["duty_c"] = dutyC;
+    if (in.type == DATA_UP || in.type == HELLO_UP){
+        data["conf_need"] = false;
+    }
+    else if (in.type == EMERGENCY_UP){
+        data["conf_need"] = true;
+    }
+    std::string ackString;
+    if (in.ack==NO_ACK){
+        ackString = "NO_ACK";
+    }
+    else if (in.ack==OPTIONAL_ACK){
+        ackString = "OPTIONAL_ACK";
+    }
+    else if (in.ack==MANDATORY_ACK){
+        ackString = "MANDATORY_ACK";
+    }
+    data["ack"] = ackString;
+
+
+    Encryption::decrypt(in.payload,in.size,key);
+    uint8_t *dataPointer = in.payload;
+    uint8_t dataSize = *dataPointer;
+    ++dataPointer;
+    std::string dataB64 = Message::toBase64(dataPointer,dataSize);
+    data["data"] = dataB64;
+    dataPointer += dataSize;
+    uint8_t *seqByte = dataPointer;
+    uint16_t *seqNum = (uint16_t *) seqByte;
+    data["seq"] = *seqNum;
+    seq = *seqNum;
+    uint8_t *micByte = seqByte + sizeof (uint16_t);
+    uint32_t *mic = (uint32_t *) micByte;
+    //check mic, size = data_len + data + seq size
+    if (isLoraPacketCorrect(in.payload,1+in.payload[0]+2,*mic)){
+        out.micOk = true;
+        std::cout << "debug out:" << std::endl;
+        std::cout << out.toStiot() << std::endl;
+    }
+    else {
+        out.micOk = false;
+    }
+    return out;
 }
 
-nlohmann::json Message::getData() {
-    return this->message.at("message_body");
+Message Message::createREGR(std::string devId, LoraPacket in, unsigned int dutyC) {
+    Message out;
+    out.type = REGR;
+    out.message["message_name"] = "REGR";
+    out.message["message_body"] = nlohmann::json::object();
+    nlohmann::json &data = out.message.at("message_body");
+    data["time"] = in.time.count();
+    data["dev_id"] = devId;
+    data["sf"] = in.datarate;
+    data["cr"] = in.coderate;
+    data["band"] = in.bandwidth;
+    data["rssi"] = in.rssi;
+    data["snr"] = in.snr;
+    data["duty_c"] = dutyC;
+    std::cout << "debug out:" << std::endl;
+    std::cout << out.toStiot() << std::endl;
+    return out;
 }
 
-Message Message::fromFile(std::string file) {
-    std::ifstream input(file.c_str());
-    std::stringstream sstr;
-    while(input >> sstr.rdbuf());
-    std::string seta = sstr.str();
-    return Message::fromJsonString(seta);
+Message Message::createSETR(std::string setrFile) {
+    Message out = Message::fromFile(setrFile);
+    out.type = SETR;
+    std::cout << "debug out:" << std::endl;
+    std::cout << out.toStiot() << std::endl;
+    return out;
+}
+
+Message Message::createKEYS(std::string devId,uint16_t seq,std::string key) {
+    Message out;
+    out.type = KEYS;
+    out.message["message_name"] = "KEYS";
+    out.message["message_body"] = nlohmann::json::object();
+    nlohmann::json &data = out.message.at("message_body");
+    data["dev_id"] = devId;
+    data["seq"] = seq;
+    data["key"] = key;
+    std::cout << "debug out:" << std::endl;
+    std::cout << out.toStiot() << std::endl;
+    return out;
+}
+
+Message Message::createKEYR(std::string devId) {
+    Message out;
+    out.type = KEYR;
+    out.message["message_name"] = "KEYR";
+    out.message["message_body"] = nlohmann::json::object();
+    nlohmann::json &data = out.message.at("message_body");
+    data["dev_id"] = devId;
+    std::cout << "debug out:" << std::endl;
+    std::cout << out.toStiot() << std::endl;
+    return out;
+}
+
+Message Message::createERR(uint32_t error,std::string description) {
+    Message out;
+    out.type = ERROR;
+    out.message["message_name"] = "ERROR";
+    out.message["message_body"] = nlohmann::json::object();
+    nlohmann::json &data = out.message.at("message_body");
+    data["error"] = error;
+    data["error_desc"] = description;
+    std::cout << "debug out:" << std::endl;
+    std::cout << out.toStiot() << std::endl;
+    return out;
 }
 
 uint8_t Message::createNetworkData(nlohmann::json paramArray, uint8_t *data,bool full) {
@@ -499,93 +577,6 @@ uint8_t Message::createNetworkData(nlohmann::json paramArray, uint8_t *data,bool
     return size;
 }
 
-bool Message::isLoraPacketCorrect(uint8_t *in,int size,uint32_t compare) {
-    uint32_t result = Message::createCheck(in,size);
-    if (result==compare){
-        return true;
-    }
-    return false;
-}
-
-Message Message::createSETR(std::string setrFile) {
-    Message out = Message::fromFile(setrFile);
-    out.type = SETR;
-    std::cout << "debug out:" << std::endl;
-    std::cout << out.toStiot() << std::endl;
-    return out;
-}
-
-Message Message::createKEYS(std::string devId,uint16_t seq,std::string key) {
-    Message out;
-    out.type = KEYS;
-    out.message["message_name"] = "KEYS";
-    out.message["message_body"] = nlohmann::json::object();
-    nlohmann::json &data = out.message.at("message_body");
-    data["dev_id"] = devId;
-    data["seq"] = seq;
-    data["key"] = key;
-    std::cout << "debug out:" << std::endl;
-    std::cout << out.toStiot() << std::endl;
-    return out;
-}
-
-Message Message::createKEYR(std::string devId) {
-    Message out;
-    out.type = KEYR;
-    out.message["message_name"] = "KEYR";
-    out.message["message_body"] = nlohmann::json::object();
-    nlohmann::json &data = out.message.at("message_body");
-    data["dev_id"] = devId;
-    std::cout << "debug out:" << std::endl;
-    std::cout << out.toStiot() << std::endl;
-    return out;
-}
-
-Message Message::createERR(uint32_t error,std::string description) {
-    Message out;
-    out.type = ERROR;
-    out.message["message_name"] = "ERROR";
-    out.message["message_body"] = nlohmann::json::object();
-    nlohmann::json &data = out.message.at("message_body");
-    data["error"] = error;
-    data["error_desc"] = description;
-    std::cout << "debug out:" << std::endl;
-    std::cout << out.toStiot() << std::endl;
-    return out;
-}
-
-Message Message::createREGR(std::string devId, LoraPacket in, unsigned int dutyC) {
-    Message out;
-    out.type = REGR;
-    out.message["message_name"] = "REGR";
-    out.message["message_body"] = nlohmann::json::object();
-    nlohmann::json &data = out.message.at("message_body");
-    data["time"] = in.time.count();
-    data["dev_id"] = devId;
-    data["sf"] = in.datarate;
-    data["cr"] = in.coderate;
-    data["band"] = in.bandwidth;
-    data["rssi"] = in.rssi;
-    data["snr"] = in.snr;
-    data["duty_c"] = dutyC;
-    std::cout << "debug out:" << std::endl;
-    std::cout << out.toStiot() << std::endl;
-    return out;
-}
-
-std::string Message::toBase64(uint8_t *data, unsigned int size) {
-    int charSize = Base64::EncodedLength(size);
-    std::vector<char> devIdChar(charSize);
-    Base64::Encode((const char *) data, size, devIdChar.data(), charSize);
-    devIdChar.push_back(0);
-    std::string outData = devIdChar.data();
-    return outData;
-}
-
-void Message::fromBase64(std::string data, uint8_t *outData,unsigned int outSize) {
-    Base64::Decode(data.c_str(), data.size(), (char *) outData, outSize);
-}
-
 uint32_t Message::createCheck(uint8_t *data,int size) {
     //One-at-a-Time hash
     uint32_t hash = 0;
@@ -600,4 +591,12 @@ uint32_t Message::createCheck(uint8_t *data,int size) {
     hash ^= (hash >> 11);
     hash += (hash << 15);
     return hash;
+}
+
+bool Message::isLoraPacketCorrect(uint8_t *in,int size,uint32_t compare) {
+    uint32_t result = Message::createCheck(in,size);
+    if (result==compare){
+        return true;
+    }
+    return false;
 }

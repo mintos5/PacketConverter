@@ -5,7 +5,6 @@
 #include <sstream>
 #include <csignal>
 #include "ConnectionController.h"
-#include "ConcentratorController.h"
 
 
 ConnectionController::ConnectionController(const std::shared_ptr<MessageConverter> &converter,Message config)
@@ -72,6 +71,23 @@ int ConnectionController::start() {
 
 void ConnectionController:: join() {
     this->fiberProcess.join();
+}
+
+void ConnectionController::stop() {
+    std::lock_guard<std::mutex> guard1(this->processMutex);
+    this->processRun = false;
+}
+
+void ConnectionController::addToQueue(Message message) {
+    std::lock_guard<std::mutex> guard1(this->queueMutex);
+    this->endDeviceData.push(message);
+}
+
+void ConnectionController::addBulk(std::vector<Message> vector) {
+    std::unique_lock<std::mutex> guard(this->queueMutex);
+    for (auto const& ent: vector){
+        this->endDeviceData.push(ent);
+    }
 }
 
 void ConnectionController::send() {
@@ -156,22 +172,5 @@ void ConnectionController::process() {
     processMutex.unlock();
     if (connectionDown){
         raise(SIGINT);
-    }
-}
-
-void ConnectionController::stop() {
-    std::lock_guard<std::mutex> guard1(this->processMutex);
-    this->processRun = false;
-}
-
-void ConnectionController::addToQueue(Message message) {
-    std::lock_guard<std::mutex> guard1(this->queueMutex);
-    this->endDeviceData.push(message);
-}
-
-void ConnectionController::addBulk(std::vector<Message> vector) {
-    std::unique_lock<std::mutex> guard(this->queueMutex);
-    for (auto const& ent: vector){
-        this->endDeviceData.push(ent);
     }
 }

@@ -42,6 +42,42 @@ int ConcentratorController::startOffline() {
     return this->startConcentrator(Message::fromJsonString(seta));
 }
 
+void ConcentratorController::join() {
+    this->receiveMutex.lock();
+    if (this->receiveRun){
+        this->receiveMutex.unlock();
+        this->fiberReceive.join();
+    }else {
+        this->receiveMutex.unlock();
+    }
+
+    this->sendMutex.lock();
+    if (this->sendRun){
+        this->sendMutex.unlock();
+        this->fiberSend.join();
+    }
+    else {
+        this->sendMutex.unlock();
+    }
+
+    int stopStatus = lgw_stop();
+    if (stopStatus == LGW_HAL_SUCCESS) {
+        std::cout << "INFO: concentrator stopped successfully" << std::endl;
+    } else {
+        std::cerr << "WARNING: failed to stop concentrator successfully" << std::endl;
+    }
+}
+
+void ConcentratorController::stop() {
+    std::lock_guard<std::mutex> guard1(this->sendMutex);
+    std::lock_guard<std::mutex> guard2(this->receiveMutex);
+    this->receiveRun = false;
+    this->sendRun = false;
+    std::unique_lock<std::mutex> guardQueue(this->queueMutex);
+    guardQueue.unlock();
+    sendConditional.notify_one();
+}
+
 int ConcentratorController::startConcentrator(Message param) {
     //SET board config
     std::cout << "Board config settings" << std::endl;
@@ -194,40 +230,31 @@ int ConcentratorController::startConcentrator(Message param) {
     return 0;
 }
 
-void ConcentratorController::join() {
-    this->receiveMutex.lock();
-    if (this->receiveRun){
-        this->receiveMutex.unlock();
-        this->fiberReceive.join();
-    }else {
-        this->receiveMutex.unlock();
-    }
-
-    this->sendMutex.lock();
-    if (this->sendRun){
-        this->sendMutex.unlock();
-        this->fiberSend.join();
-    }
-    else {
-        this->sendMutex.unlock();
-    }
-
-    int stopStatus = lgw_stop();
-    if (stopStatus == LGW_HAL_SUCCESS) {
-        std::cout << "INFO: concentrator stopped successfully" << std::endl;
-    } else {
-        std::cerr << "WARNING: failed to stop concentrator successfully" << std::endl;
-    }
+void ConcentratorController::addToQueue(LoraPacket message) {
+    std::unique_lock<std::mutex> guard(this->queueMutex);
+    this->serverData.push(message);
+    guard.unlock();
+    sendConditional.notify_one();
 }
 
-void ConcentratorController::stop() {
-    std::lock_guard<std::mutex> guard1(this->sendMutex);
-    std::lock_guard<std::mutex> guard2(this->receiveMutex);
-    this->receiveRun = false;
-    this->sendRun = false;
-    std::unique_lock<std::mutex> guardQueue(this->queueMutex);
-    guardQueue.unlock();
-    sendConditional.notify_one();
+void ConcentratorController::processStiot() {
+    std::unique_lock<std::mutex> guard(this->queueMutex);
+    sendMutex.lock();
+    while (sendRun){
+        sendMutex.unlock();
+        //here I can send testings
+        if (serverData.empty()){
+            sendConditional.wait(guard);
+            std::cout << "conditionVariable.unlocked" << std::endl;
+        }
+        while(!serverData.empty()){
+            LoraPacket msg = serverData.front();
+            serverData.pop();
+            this->sendHal(msg);
+        }
+        sendMutex.lock();
+    }
+    sendMutex.unlock();
 }
 
 void ConcentratorController::receiveHal() {
@@ -264,25 +291,6 @@ void ConcentratorController::receiveHal() {
     }
 }
 
-void ConcentratorController::processStiot() {
-    std::unique_lock<std::mutex> guard(this->queueMutex);
-    sendMutex.lock();
-    while (sendRun){
-        sendMutex.unlock();
-        //here I can send testings
-        if (serverData.empty()){
-            sendConditional.wait(guard);
-            std::cout << "conditionVariable.unlocked" << std::endl;
-        }
-        while(!serverData.empty()){
-            LoraPacket msg = serverData.front();
-            serverData.pop();
-            this->sendHal(msg);
-        }
-        sendMutex.lock();
-    }
-    sendMutex.unlock();
-}
 
 int ConcentratorController::sendHal(LoraPacket msg) {
     uint8_t status_var;
@@ -306,36 +314,87 @@ int ConcentratorController::sendHal(LoraPacket msg) {
     return 0;
 }
 
-void ConcentratorController::addToQueue(LoraPacket message) {
-    std::unique_lock<std::mutex> guard(this->queueMutex);
-    this->serverData.push(message);
-    guard.unlock();
-    sendConditional.notify_one();
-}
-
-int ConcentratorController::sendRawTest(std::string) {
-    //GETTING SENDING PARAMETERS
-    struct lgw_pkt_tx_s txpkt = DevicesTable::setTestParams();
-    //GETTING DATA
-    char message[] = "ping pong";
-    std::copy(message,message+8,txpkt.payload);
-    txpkt.size = 8;
-    uint8_t status_var;
-    do {
-        lgw_status(TX_STATUS, &status_var); /* get TX status */
-        if (status_var != TX_FREE){
-            wait_ms(5);
-        }
-    } while (status_var != TX_FREE);
-    printf("OK\n");
-
-
-    int i = lgw_send(txpkt); /* non-blocking scheduling of TX packet */
-    if (i != LGW_HAL_SUCCESS) {
-        printf("ERROR\n");
-        return -1;
+struct lgw_pkt_tx_s ConcentratorController::toHal(LoraPacket msg) {
+    lgw_pkt_tx_s out;
+    memset(&out, 0, sizeof(out));
+    //special settings
+    switch (msg.bandwidth) {
+        case 125000: out.bandwidth = BW_125KHZ; break;
+        case 250000: out.bandwidth = BW_250KHZ; break;
+        case 500000: out.bandwidth = BW_500KHZ; break;
+        default:
+            std::cerr << "BAD BW" << std::endl;
+            return out;
     }
-    return 0;
+    switch (msg.datarate) {
+        case  7: out.datarate = DR_LORA_SF7;  break;
+        case  8: out.datarate = DR_LORA_SF8;  break;
+        case  9: out.datarate = DR_LORA_SF9;  break;
+        case 10: out.datarate = DR_LORA_SF10; break;
+        case 11: out.datarate = DR_LORA_SF11; break;
+        case 12: out.datarate = DR_LORA_SF12; break;
+        default:
+            std::cerr << "BAD SF" << std::endl;
+            return out;
+    }
+
+    if (msg.coderate=="4/5"){
+        out.coderate = CR_LORA_4_5;
+    }
+    else if (msg.coderate=="4/6"){
+        out.coderate = CR_LORA_4_6;
+    }
+    else if (msg.coderate=="4/7"){
+        out.coderate = CR_LORA_4_7;
+    }
+    else if (msg.coderate=="4/8"){
+        out.coderate = CR_LORA_4_8;
+    }
+    else {
+        std::cerr << "BAD CR" << std::endl;
+        return out;
+    }
+
+    //solid settings
+    out.tx_mode = IMMEDIATE;
+    out.modulation = MOD_LORA;
+    out.invert_pol = false;
+    out.preamble = 8;
+    //easy settings
+    out.freq_hz = msg.frequency;
+    out.rf_power = msg.rfPower;
+    out.rf_chain = msg.rfChain;
+    out.size = msg.size + 4;    //+4 for devId and type
+    //copy devID first
+    std::copy(msg.devId,msg.devId + DEV_ID_SIZE,out.payload);
+    //set typeACK
+    uint8_t *typeAck = out.payload + DEV_ID_SIZE;
+    switch (msg.type){
+        case REGISTER_DOWN:
+            *typeAck = LORAFIIT_REG_DOWN;
+            break;
+        case DATA_DOWN:
+            *typeAck = LORAFIIT_DATA_DOWN;
+            break;
+        default:
+            *typeAck = LORAFIIT_DATA_DOWN;
+    }
+    switch (msg.ack){
+        case NO_ACK:
+            *typeAck = *typeAck + LORAFIIT_NO_ACK;
+            break;
+        case OPTIONAL_ACK:
+            *typeAck = *typeAck + LORAFIIT_OPT_ACK;
+            break;
+        case MANDATORY_ACK:
+            *typeAck = *typeAck + LORAFIIT_MAN_ACK;
+            break;
+        default:
+            *typeAck = *typeAck + LORAFIIT_NO_ACK;
+    }
+    //copy data
+    std::copy(msg.payload,msg.payload + (msg.size),typeAck+1);
+    return out;
 }
 
 LoraPacket ConcentratorController::fromHal(struct lgw_pkt_rx_s msg) {
@@ -464,88 +523,31 @@ LoraPacket ConcentratorController::fromHal(struct lgw_pkt_rx_s msg) {
     return out;
 }
 
-struct lgw_pkt_tx_s ConcentratorController::toHal(LoraPacket msg) {
-    lgw_pkt_tx_s out;
-    memset(&out, 0, sizeof(out));
-    //special settings
-    switch (msg.bandwidth) {
-        case 125000: out.bandwidth = BW_125KHZ; break;
-        case 250000: out.bandwidth = BW_250KHZ; break;
-        case 500000: out.bandwidth = BW_500KHZ; break;
-        default:
-            std::cerr << "BAD BW" << std::endl;
-            return out;
-    }
-    switch (msg.datarate) {
-        case  7: out.datarate = DR_LORA_SF7;  break;
-        case  8: out.datarate = DR_LORA_SF8;  break;
-        case  9: out.datarate = DR_LORA_SF9;  break;
-        case 10: out.datarate = DR_LORA_SF10; break;
-        case 11: out.datarate = DR_LORA_SF11; break;
-        case 12: out.datarate = DR_LORA_SF12; break;
-        default:
-            std::cerr << "BAD SF" << std::endl;
-            return out;
-    }
+int ConcentratorController::sendRawTest(std::string) {
+    //GETTING SENDING PARAMETERS
+    struct lgw_pkt_tx_s txpkt = DevicesTable::setTestParams();
+    //GETTING DATA
+    char message[] = "ping pong";
+    std::copy(message,message+8,txpkt.payload);
+    txpkt.size = 8;
+    uint8_t status_var;
+    do {
+        lgw_status(TX_STATUS, &status_var); /* get TX status */
+        if (status_var != TX_FREE){
+            wait_ms(5);
+        }
+    } while (status_var != TX_FREE);
+    printf("OK\n");
 
-    if (msg.coderate=="4/5"){
-        out.coderate = CR_LORA_4_5;
-    }
-    else if (msg.coderate=="4/6"){
-        out.coderate = CR_LORA_4_6;
-    }
-    else if (msg.coderate=="4/7"){
-        out.coderate = CR_LORA_4_7;
-    }
-    else if (msg.coderate=="4/8"){
-        out.coderate = CR_LORA_4_8;
-    }
-    else {
-        std::cerr << "BAD CR" << std::endl;
-        return out;
-    }
 
-    //solid settings
-    out.tx_mode = IMMEDIATE;
-    out.modulation = MOD_LORA;
-    out.invert_pol = false;
-    out.preamble = 8;
-    //easy settings
-    out.freq_hz = msg.frequency;
-    out.rf_power = msg.rfPower;
-    out.rf_chain = msg.rfChain;
-    out.size = msg.size + 4;    //+4 for devId and type
-    //copy devID first
-    std::copy(msg.devId,msg.devId + DEV_ID_SIZE,out.payload);
-    //set typeACK
-    uint8_t *typeAck = out.payload + DEV_ID_SIZE;
-    switch (msg.type){
-        case REGISTER_DOWN:
-            *typeAck = LORAFIIT_REG_DOWN;
-            break;
-        case DATA_DOWN:
-            *typeAck = LORAFIIT_DATA_DOWN;
-            break;
-        default:
-            *typeAck = LORAFIIT_DATA_DOWN;
+    int i = lgw_send(txpkt); /* non-blocking scheduling of TX packet */
+    if (i != LGW_HAL_SUCCESS) {
+        printf("ERROR\n");
+        return -1;
     }
-    switch (msg.ack){
-        case NO_ACK:
-            *typeAck = *typeAck + LORAFIIT_NO_ACK;
-            break;
-        case OPTIONAL_ACK:
-            *typeAck = *typeAck + LORAFIIT_OPT_ACK;
-            break;
-        case MANDATORY_ACK:
-            *typeAck = *typeAck + LORAFIIT_MAN_ACK;
-            break;
-        default:
-            *typeAck = *typeAck + LORAFIIT_NO_ACK;
-    }
-    //copy data
-    std::copy(msg.payload,msg.payload + (msg.size),typeAck+1);
-    return out;
+    return 0;
 }
+
 
 void ConcentratorController::testFunc() {
     std::unique_lock<std::mutex> guard(this->queueMutex);

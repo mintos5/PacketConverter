@@ -56,25 +56,20 @@ class ConcentratorController {
     void processStiot();
     void receiveHal();
     int sendHal(LoraPacket msg);
-
     struct lgw_pkt_tx_s toHal(LoraPacket msg);
     LoraPacket fromHal(struct lgw_pkt_rx_s msg);
 
 public:
-
+    ConcentratorController(const std::shared_ptr<MessageConverter> &converter,Message config);
     int start();
     int startOffline();
-    int sendRawTest(std::string);
     void join();
     void stop();
     int startConcentrator(Message param);
     void addToQueue(LoraPacket message);
 
+    int sendRawTest(std::string);
     void testFunc();
-
-    ConcentratorController(const std::shared_ptr<MessageConverter> &converter,Message config);
-
-
 };
 
 

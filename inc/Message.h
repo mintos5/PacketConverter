@@ -56,8 +56,8 @@ class Message {
 public:
     //pomocne funkcie
     static uint8_t createNetworkData(nlohmann::json paramArray, uint8_t *data,bool full);
-    static bool isLoraPacketCorrect(uint8_t *in,int size,uint32_t compare);
     static uint32_t createCheck(uint8_t *data, int size);
+    static bool isLoraPacketCorrect(uint8_t *in,int size,uint32_t compare);
 
     MessageType type;
     nlohmann::json message;
@@ -69,15 +69,17 @@ public:
     static std::string toBase64(uint8_t *data, unsigned int size);
     static void fromBase64(std::string data,uint8_t *outData,unsigned int outSize);
 
+    static Message fromFile(std::string file);
     static Message fromJsonString(std::string message);
-    static Message createRXL(std::string devId, LoraPacket in, uint8_t *key, uint16_t &seq, unsigned int dutyC);
+
     static LoraPacket fromStiot(Message in,uint8_t *key, uint16_t &seq);
+
+    static Message createRXL(std::string devId, LoraPacket in, uint8_t *key, uint16_t &seq, unsigned int dutyC);
+    static Message createREGR(std::string devId,LoraPacket in, unsigned int dutyC);
     static Message createSETR(std::string setrFile);
     static Message createKEYS(std::string devId,uint16_t seq,std::string key);
     static Message createKEYR(std::string devId);
     static Message createERR(uint32_t error,std::string description);
-    static Message createREGR(std::string devId,LoraPacket in, unsigned int dutyC);
-    static Message fromFile(std::string file);
 };
 
 

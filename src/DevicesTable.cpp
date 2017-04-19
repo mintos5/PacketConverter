@@ -4,6 +4,7 @@
 
 #include <cstring>
 #include <algorithm>
+#include <MessageConverter.h>
 #include "DevicesTable.h"
 
 
@@ -321,8 +322,10 @@ bool DevicesTable::reduceDutyCycle(std::string deviceId, uint8_t messageSize) {
             return false;
         }
         *currentOnAirCounter = *currentOnAirCounter - messageTime;
-        std::cout << "debug out:" << std::endl;
-        std::cout << "remaining time:" << *currentOnAirCounter << std::endl;
+        if (APP_DEBUG){
+            std::cout << "debug out:" << std::endl;
+            std::cout << "remaining time:" << *currentOnAirCounter << std::endl;
+        }
         return true;
     }
     return false;

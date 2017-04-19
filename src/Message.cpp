@@ -6,6 +6,7 @@
 #include <fstream>
 #include <base64.h>
 #include <Encryption.h>
+#include <MessageConverter.h>
 #include "DevicesTable.h"
 
 
@@ -40,6 +41,10 @@ Message Message::fromFile(std::string file) {
 
 Message Message::fromJsonString(std::string message) {
     Message out;
+    if (message.empty()){
+        out.micOk = false;
+        return out;
+    }
     out.message = nlohmann::json::parse(message);
     if (out.message.find("conf")!= out.message.end()){
         out.type = CONFIG;
@@ -68,6 +73,10 @@ Message Message::fromJsonString(std::string message) {
         }
         else {
             out.type = UNK;
+            out.micOk = false;
+        }
+        if (out.message.find("message_body")== out.message.end()){
+            out.micOk = false;
         }
     }
     //std::cout << test.dump(4) << std::endl;
@@ -121,9 +130,15 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
         uint8_t *padding = micPointer + sizeof(uint32_t);
         //totalSize calculation
         int totalSize = 1 + networkDataSize + 1 +appDataSize + 2 + 4;
-        int missingBytes = totalSize%BLOCK_SIZE;
-        if (missingBytes != 0){
-            missingBytes = BLOCK_SIZE - missingBytes;
+        int missingBytes;
+        if (totalSize < MIN_BLOCK_SIZE){
+            missingBytes = MIN_BLOCK_SIZE - totalSize;
+        }
+        else {
+            missingBytes = totalSize%BLOCK_SIZE;
+            if (missingBytes != 0){
+                missingBytes = BLOCK_SIZE - missingBytes;
+            }
         }
         for (int i =0;i<missingBytes;i++){
             *padding = distr(gen);
@@ -131,6 +146,18 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
         }
         //set correct size of packaet
         out.size = totalSize + missingBytes + DH_SESSION_KEY_SIZE;
+        //debuging data
+        if (APP_DEBUG){
+            std::cout << "unecrypted data:" << std::endl;
+            uint8_t *readPointer = out.payload;
+            for (int i=0;i<out.size;i++){
+                printf ("%02x ", *readPointer);
+                if( (i+1)%10 == 0){
+                    printf("\n");
+                }
+                ++readPointer;
+            }
+        }
         //encrypt data
         Encryption::encrypt(networkLength,out.size - DH_SESSION_KEY_SIZE,key);
     }
@@ -169,9 +196,15 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
         uint8_t *padding = micPointer + sizeof(uint32_t);
         //totalSize calculation
         int totalSize = 1 + networkDataSize + 1 +appDataSize + 2 + 4;
-        int missingBytes = totalSize%BLOCK_SIZE;
-        if (missingBytes != 0){
-            missingBytes = BLOCK_SIZE - missingBytes;
+        int missingBytes;
+        if (totalSize < MIN_BLOCK_SIZE){
+            missingBytes = MIN_BLOCK_SIZE - totalSize;
+        }
+        else {
+            missingBytes = totalSize%BLOCK_SIZE;
+            if (missingBytes != 0){
+                missingBytes = BLOCK_SIZE - missingBytes;
+            }
         }
         for (int i =0;i<missingBytes;i++){
             *padding = distr(gen);
@@ -179,19 +212,21 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
         }
         //set correct size of packaet
         out.size = totalSize + missingBytes;
-
+        //debuging
+        if (APP_DEBUG){
+            std::cout << "unecrypted data:" << std::endl;
+            uint8_t *readPointer = out.payload;
+            for (int i=0;i<out.size;i++){
+                printf ("%02x ", *readPointer);
+                if( (i+1)%10 == 0){
+                    printf("\n");
+                }
+                ++readPointer;
+            }
+        }
         //encrypt data
         Encryption::encrypt(networkLength,out.size,key);
     }
-    //read data: can be placed before encryption
-//    uint8_t *readPointer = out.payload;
-//    for (int i=0;i<out.size;i++){
-//        printf ("%02x ", *readPointer);
-//        if( (i+1)%10 == 0){
-//            printf("\n");
-//        }
-//        ++readPointer;
-//    }
     return out;
 }
 
@@ -244,8 +279,10 @@ Message Message::createRXL(std::string devId, LoraPacket in, uint8_t *key, uint1
     //check mic, size = data_len + data + seq size
     if (isLoraPacketCorrect(in.payload,1+in.payload[0]+2,*mic)){
         out.micOk = true;
-        std::cout << "debug out:" << std::endl;
-        std::cout << out.toStiot() << std::endl;
+        if (APP_DEBUG){
+            std::cout << "debug out:" << std::endl;
+            std::cout << out.toStiot() << std::endl;
+        }
     }
     else {
         out.micOk = false;
@@ -267,8 +304,10 @@ Message Message::createREGR(std::string devId, LoraPacket in, unsigned int dutyC
     data["rssi"] = in.rssi;
     data["snr"] = in.snr;
     data["duty_c"] = dutyC;
-    std::cout << "debug out:" << std::endl;
-    std::cout << out.toStiot() << std::endl;
+    if (APP_DEBUG){
+        std::cout << "debug out:" << std::endl;
+        std::cout << out.toStiot() << std::endl;
+    }
     return out;
 }
 
@@ -289,8 +328,10 @@ Message Message::createKEYS(std::string devId,uint16_t seq,std::string key) {
     data["dev_id"] = devId;
     data["seq"] = seq;
     data["key"] = key;
-    std::cout << "debug out:" << std::endl;
-    std::cout << out.toStiot() << std::endl;
+    if (APP_DEBUG){
+        std::cout << "debug out:" << std::endl;
+        std::cout << out.toStiot() << std::endl;
+    }
     return out;
 }
 
@@ -301,8 +342,10 @@ Message Message::createKEYR(std::string devId) {
     out.message["message_body"] = nlohmann::json::object();
     nlohmann::json &data = out.message.at("message_body");
     data["dev_id"] = devId;
-    std::cout << "debug out:" << std::endl;
-    std::cout << out.toStiot() << std::endl;
+    if (APP_DEBUG){
+        std::cout << "debug out:" << std::endl;
+        std::cout << out.toStiot() << std::endl;
+    }
     return out;
 }
 
@@ -314,8 +357,10 @@ Message Message::createERR(uint32_t error,std::string description) {
     nlohmann::json &data = out.message.at("message_body");
     data["error"] = error;
     data["error_desc"] = description;
-    std::cout << "debug out:" << std::endl;
-    std::cout << out.toStiot() << std::endl;
+    if (APP_DEBUG){
+        std::cout << "debug out:" << std::endl;
+        std::cout << out.toStiot() << std::endl;
+    }
     return out;
 }
 

@@ -1,6 +1,5 @@
 #ifndef PROJECT_MAINAPP_H
 #define PROJECT_MAINAPP_H
-
 #include <json.hpp>
 
 

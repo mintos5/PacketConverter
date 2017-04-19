@@ -46,7 +46,12 @@ void MessageConverter::join() {
 
 void MessageConverter::addToQueue(Message message) {
     std::unique_lock<std::mutex> guard(this->stiotDataMutex);
-    this->fromStiotData.push(message);
+    if (message.micOk){
+        this->fromStiotData.push(message);
+    }
+    else {
+        //maybe debug out?
+    }
     guard.unlock();
     fromStiotCond.notify_one();
 }
@@ -123,25 +128,38 @@ void MessageConverter::fromStiot() {
         Message in;
         //just gen one message and send
         if (this->getFromStiotData(in,guardData)){
-            std::cout << "new STIOT data:";
+            if (APP_DEBUG){
+                std::cout << "new STIOT data:";
+            }
             if (in.type==SETA){
-                std::cout << "SETA" << std::endl;
-                //todo uncomment starting
+                if (APP_DEBUG){
+                    std::cout << "SETA" << std::endl;
+                }
                 if (oneTime){
                     //need to turn off and turn on
                     concentrator->stop();
                     concentrator->join();
                     concentrator->start();
-                    //concentrator->startConcentrator(in);
+                    concentrator->startConcentrator(in);
                 }
                 else {
-                    //concentrator->startConcentrator(in);
+                    concentrator->startConcentrator(in);
                     oneTime = true;
                 }
             }
             else if (in.type==KEYA){
-                std::cout << "KEYA" << std::endl;
+                if (APP_DEBUG){
+                    std::cout << "KEYA" << std::endl;
+                }
                 if (devicesTable.isMine(in.devId)){
+                    nlohmann::json data = in.getData();
+                    if (data.find("seq") == data.end() || data.find("key") == data.end()){
+                        if (APP_DEBUG){
+                            std::cerr << "BAD STIOT DATA" << std::endl;
+                        }
+                        guard.lock();
+                        continue;
+                    }
                     //get SEQ number from json
                     uint16_t seq = in.getData().at("seq");
                     //get base64 string with session key
@@ -158,11 +176,17 @@ void MessageConverter::fromStiot() {
                 }
             }
             else if (in.type==REGA){
-                std::cout << "REGA" << std::endl;
+                if (APP_DEBUG){
+                    std::cout << "REGA" << std::endl;
+                }
                 if (devicesTable.isMine(in.devId)){
                     nlohmann::json data = in.getData();
-                    if (data.find("sh_key") == data.end()){
-                        //bad REGA STIOT message
+                    if (data.find("sh_key") == data.end() || data.find("power") == data.end()
+                        || data.find("net_data") == data.end() || data.find("app_data") == data.end()){
+                        if (APP_DEBUG){
+                            std::cerr << "BAD STIOT DATA" << std::endl;
+                        }
+                        guard.lock();
                         continue;
                     }
                     std::string preSharedKey = data.at("sh_key");
@@ -217,8 +241,19 @@ void MessageConverter::fromStiot() {
                 }
             }
             else if (in.type==TXL){
-                std::cout << "TXL" << std::endl;
+                if (APP_DEBUG){
+                    std::cout << "TXL" << std::endl;
+                }
                 if (devicesTable.isMine(in.devId)){
+                    nlohmann::json data = in.getData();
+                    if (data.find("power") == data.end() ||data.find("net_data") == data.end()
+                        || data.find("app_data") == data.end()){
+                        if (APP_DEBUG){
+                            std::cerr << "BAD STIOT DATA" << std::endl;
+                        }
+                        guard.lock();
+                        continue;
+                    }
                     if (devicesTable.hasSessionKey(in.devId)){
                         uint16_t seqNum;
                         seqNum = devicesTable.getSeq(in.devId);
@@ -263,17 +298,22 @@ void MessageConverter::fromLora() {
         if (this->fromLoraData.empty()){
             if (this->getFromLoraData(in,guardData)){
                 inVector.push_back(in);
-                std::cout << "NEW LORA data (IF)" << std::endl;
+                if (APP_DEBUG){
+                    std::cout << "NEW LORA data (IF)" << std::endl;
+                }
             }
         }
         while (!this->fromLoraData.empty()){
-            std::cout << "NEW LORA data (while)" << std::endl;
+            if (APP_DEBUG){
+                std::cout << "NEW LORA data (while)" << std::endl;
+            }
             if (this->getFromLoraData(in,guardData)){
                 inVector.push_back(in);
             }
         }
-
-        std::cout << "END OF while in fromLora"<< std::endl;
+        if (APP_DEBUG){
+            std::cout << "END OF while in fromLora"<< std::endl;
+        }
         //process new LoRaFIIT msg
         for (auto& element: inVector){
             std::string devId = Message::toBase64(element.devId,DEV_ID_SIZE);
@@ -375,11 +415,11 @@ void MessageConverter::timerFunction() {
 
             //testing addition to table
             LoraPacket test1;
-            test1.frequency = 868000000;
+            test1.frequency = 867500000;
             test1.coderate = "4/5";
             test1.bandwidth = 500000;
             test1.datarate = 8;
-            test1.rfChain = 1;
+            test1.rfChain = 0;
             test1.devId[0] = 65;
             test1.devId[1] = 65;
             test1.devId[2] = 65;
@@ -414,18 +454,21 @@ void MessageConverter::timerFunction() {
             key[14] = 75;
             key[15] = 75;
 
+            //todo testovanie s Jarom
+            //Encryption::decrypt(nullptr,12,key.data());
+
             LoraPacket test2;
             test2.frequency = 868000000;
             test2.coderate = "4/5";
             test2.bandwidth = 500000;
             test2.datarate = 8;
-            test2.rfChain = 1;
+            test2.rfChain = 0;
             test2.devId[0] = 65;
             test2.devId[1] = 65;
             test2.devId[2] = 65;
             test2.type = DATA_UP;
             test2.ack = MANDATORY_ACK;
-            char dataTest2[] = "ALoRaWan12CD1234";
+            char dataTest2[] = "ALoRaWan12CF1234";
             dataTest2[0] = 9;
             uint32_t *mic = (uint32_t * ) & dataTest2[12];
             *mic = Message::createCheck((uint8_t *) dataTest2, 12);
@@ -452,12 +495,6 @@ void MessageConverter::timerFunction() {
             //raise(SIGINT);
         }
         devicesTable.updateByTimer(currentTime);
-//        std::vector<LoraPacket> test;
-//        LoraPacket tt;
-//        test.push_back(tt);
-//        test.push_back(tt);
-//        test.push_back(tt);
-//        this->addBulk(test);
         guard.lock();
     }
     guard.unlock();

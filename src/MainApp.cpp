@@ -57,7 +57,7 @@ int main(int argc, char *argv[]){
     while(input >> sstr.rdbuf());
     std::string config = sstr.str();
     Message localConfigMessage = Message::fromJsonString(config);
-    std::cout << localConfigMessage.message.dump(2) << std::endl;
+    //std::cout << localConfigMessage.message.dump(2) << std::endl;
 
     converter = std::make_shared<MessageConverter>();
 

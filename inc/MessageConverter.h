@@ -5,6 +5,7 @@
 #ifndef PACKETCONVERTER_MESSAGECONVERTOR_H
 #define PACKETCONVERTER_MESSAGECONVERTOR_H
 #define CONNECTION_TIMEOUT 10
+#define APP_DEBUG true
 
 #include <thread>
 #include <mutex>

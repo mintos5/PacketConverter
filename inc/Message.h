@@ -7,7 +7,8 @@
 #include <string>
 #include <chrono>
 #include "json.hpp"
-#define BLOCK_SIZE 8
+#define MIN_BLOCK_SIZE 8
+#define BLOCK_SIZE 4
 #define NET_BAND 0x10
 #define NET_CR 0x20
 #define NET_FR 0x30
@@ -62,7 +63,7 @@ public:
     MessageType type;
     nlohmann::json message;
     std::string devId;
-    bool micOk;
+    bool micOk = true;
     std::string toStiot();
     nlohmann::json getData();
 

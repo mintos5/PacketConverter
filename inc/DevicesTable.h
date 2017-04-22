@@ -13,10 +13,6 @@
 #include <map>
 #include "Message.h"
 
-extern "C" {
-#include "loragw_hal.h"
-}
-
 struct EndDevice{
     bool myDevice;
     bool sessionKeyExists;
@@ -68,8 +64,6 @@ public:
     long remainingDutyCycle(std::string deviceId);
     long calculateDutyCycle(std::map<std::string, EndDevice>::iterator &iterator, uint8_t payloadSize);
     bool reduceDutyCycle(std::string deviceId,uint8_t messageSize);
-
-    static lgw_pkt_tx_s setTestParams();
 };
 
 

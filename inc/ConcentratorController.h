@@ -17,8 +17,8 @@ extern "C" {
 #include "loragw_aux.h"
 }
 #define NB_PKT_MAX		8 /* max number of packets per fetch/send cycle */
-#define LORAFIIT_TYPE_TEMP 0xe0
-#define LORAFIIT_ACK_TEMP 0x07
+#define LORAFIIT_TYPE_MASK 0xe0
+#define LORAFIIT_ACK_MASK 0x07
 
 #define LORAFIIT_REG_UP 0x00
 #define LORAFIIT_DATA_UP 0x20
@@ -67,9 +67,6 @@ public:
     void stop();
     int startConcentrator(Message param);
     void addToQueue(LoraPacket message);
-
-    int sendRawTest(std::string);
-    void testFunc();
 };
 
 

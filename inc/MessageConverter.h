@@ -43,6 +43,9 @@ class MessageConverter {
     void fromLora();
     void timerFunction();
 
+    int timerRegResponse = 0;
+    std::mutex timerResponseMutex;
+
     std::shared_ptr<ConnectionController> connection;
     std::shared_ptr<ConcentratorController> concentrator;
     DevicesTable devicesTable;

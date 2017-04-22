@@ -160,6 +160,17 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
         }
         //encrypt data
         Encryption::encrypt(networkLength,out.size - DH_SESSION_KEY_SIZE,key);
+        if (APP_DEBUG){
+            std::cout << "ecrypted data:" << std::endl;
+            uint8_t *readPointer = out.payload;
+            for (int i=0;i<out.size;i++){
+                printf ("%02x ", *readPointer);
+                if( (i+1)%10 == 0){
+                    printf("\n");
+                }
+                ++readPointer;
+            }
+        }
     }
     else if (in.type == TXL){
         out.rfPower = in.getData().at("power");

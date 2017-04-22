@@ -9,7 +9,7 @@
 #include "MessageConverter.h"
 #include "ConcentratorController.h"
 #include "ConnectionController.h"
-#define P 0xffffffffffffffc5ull
+#define P 0xfffffffb
 
 int MessageConverter::start() {
     this->fromLoraFiber = std::thread(&MessageConverter::fromLora,this);
@@ -36,6 +36,7 @@ void MessageConverter::stop() {
     std::unique_lock<std::mutex> guard3(this->timerMutex);
     this->timerRun = false;
     guard3.unlock();
+    std::cout << "CONVERTER stopped" << std::endl;
 }
 
 void MessageConverter::join() {
@@ -50,7 +51,9 @@ void MessageConverter::addToQueue(Message message) {
         this->fromStiotData.push(message);
     }
     else {
-        //maybe debug out?
+        if (APP_DEBUG){
+            std::cout << "BAD STIOT data in addToQueue";
+        }
     }
     guard.unlock();
     fromStiotCond.notify_one();
@@ -201,27 +204,31 @@ void MessageConverter::fromStiot() {
                     DiffieHellman::getDHB(preKeyVector.data(),publicKey.data(),privateKey.data());
                     DiffieHellman::getSessionKey(preKeyVector.data(),devicesTable.getDh(in.devId)
                             ,privateKey.data(),sessionKey.data());
-                    //testing key vector
-                    std::vector<uint8_t > key(16);
-                    key[0] = 75;
-                    key[1] = 75;
-                    key[2] = 75;
-                    key[3] = 75;
-                    key[4] = 75;
-                    key[5] = 75;
-                    key[6] = 75;
-                    key[7] = 75;
-                    key[8] = 75;
-                    key[9] = 75;
-                    key[10] = 75;
-                    key[11] = 75;
-                    key[12] = 75;
-                    key[13] = 75;
-                    key[14] = 75;
-                    key[15] = 75;
                     //set correct new session key and default (0) sequence Number
-                    //todo start using session key
-                    devicesTable.setSessionkey(in.devId, key.data(), 0);
+                    if (APP_DEBUG){
+                        std::cout << "my public KEY" << std::endl;
+                        for (int i=0;i<16;i++){
+                            //std::cout << std::hex << sessionKey[i] << std::endl;
+                            printf ("%02x ", publicKey[i]);
+                        }
+                        std::cout << std::endl;
+
+                        std::cout << "Simon public KEY" << std::endl;
+                        uint8_t *simonKey = devicesTable.getDh(in.devId);
+                        for (int i=0;i<16;i++){
+                            //std::cout << std::hex << sessionKey[i] << std::endl;
+                            printf ("%02x ", simonKey[i]);
+                        }
+                        std::cout << std::endl;
+
+                        std::cout << "SESSION KEY" << std::endl;
+                        for (int i=0;i<16;i++){
+                            //std::cout << std::hex << sessionKey[i] << std::endl;
+                            printf ("%02x ", sessionKey[i]);
+                        }
+                        std::cout << std::endl;
+                    }
+                    devicesTable.setSessionkey(in.devId, sessionKey.data(), 0);
                     //message is ready
                     uint16_t seqNum;
                     LoraPacket out = Message::fromStiot(in,devicesTable.getSessionKey(in.devId),seqNum);
@@ -318,10 +325,16 @@ void MessageConverter::fromLora() {
         for (auto& element: inVector){
             std::string devId = Message::toBase64(element.devId,DEV_ID_SIZE);
             if (element.type==REGISTER_UP){
+                //todo maybe add check for correct size?
+                std::cout << "LORA REGISTER"<< std::endl;
                 this->devicesTable.addDevice(devId, element, 0);
                 connection->addToQueue(Message::createREGR(devId,element,this->devicesTable.remainingDutyCycle(devId)));
+                this->timerResponseMutex.lock();
+                timerRegResponse++;
+                this->timerResponseMutex.unlock();
             }
             else if (element.type==DATA_UP || element.type==HELLO_UP || element.type == EMERGENCY_UP){
+                std::cout << "LORA DATA_UP + ETC"<< std::endl;
                 if (devicesTable.hasSessionKey(devId) && devicesTable.isMine(devId)){
                     uint16_t seqNum;
                     out = Message::createRXL(devId, element, devicesTable.getSessionKey(devId), seqNum,
@@ -379,116 +392,33 @@ void MessageConverter::timerFunction() {
             (std::chrono::system_clock::now().time_since_epoch());
     std::unique_lock<std::mutex> guard(this->timerMutex);
     bool oneTime = true;
+    int counter = 0;
     while (this->timerRun){
         guard.unlock();
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::this_thread::sleep_for(std::chrono::seconds(2));
         std::chrono::seconds currentTime = std::chrono::duration_cast< std::chrono::seconds >
                 (std::chrono::system_clock::now().time_since_epoch());
         std::cout << "STATUS TIMER" << std::endl;
+//        if (counter<2){
+//            concentrator->sendRawTest("asud");
+//            counter++;
+//        }
+
+        this->timerResponseMutex.lock();
+        if (timerRegResponse > 0){
+            timerRegResponse--;
+            this->timerResponseMutex.unlock();
+            std::cout << "Waiting before sending" << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            this->addToQueue(Message::fromFile("tests/rega.json"));
+        }
+        else {
+            this->timerResponseMutex.unlock();
+        }
+
         if (oneTime){
             //todo tests area
-
-            std::vector<uint8_t > preKeyVector(DH_SESSION_KEY_SIZE+8);
-            for (int i=0;i<3;i++){
-                uint8_t *pointerPreKey = preKeyVector.data() + i*sizeof(uint64_t);
-                uint64_t *pointer = (uint64_t *) pointerPreKey;
-                *pointer = P;
-                if (i==2){
-                    *pointer = 2;
-                }
-            }
-
-            std::vector<uint8_t > privateKeyA(DH_SESSION_KEY_SIZE);
-            std::vector<uint8_t > publicKeyA(DH_SESSION_KEY_SIZE);
-            std::vector<uint8_t > sessionKeyA(DH_SESSION_KEY_SIZE);
-            DiffieHellman::getDHB(preKeyVector.data(),publicKeyA.data(),privateKeyA.data());
-
-            std::vector<uint8_t > privateKeyB(DH_SESSION_KEY_SIZE);
-            std::vector<uint8_t > publicKeyB(DH_SESSION_KEY_SIZE);
-            std::vector<uint8_t > sessionKeyB(DH_SESSION_KEY_SIZE);
-
-            DiffieHellman::getDHB(preKeyVector.data(),publicKeyB.data(),privateKeyB.data());
-            //generate session on B side
-            DiffieHellman::getSessionKey(preKeyVector.data(),publicKeyA.data(),privateKeyB.data(),sessionKeyB.data());
-            //generate session on A side
-            DiffieHellman::getSessionKey(preKeyVector.data(),publicKeyB.data(),privateKeyA.data(),sessionKeyA.data());
-
-            //testing addition to table
-            LoraPacket test1;
-            test1.frequency = 867500000;
-            test1.coderate = "4/5";
-            test1.bandwidth = 500000;
-            test1.datarate = 8;
-            test1.rfChain = 0;
-            test1.devId[0] = 65;
-            test1.devId[1] = 65;
-            test1.devId[2] = 65;
-            test1.type = REGISTER_UP;
-            test1.ack = MANDATORY_ACK;
-            std::copy(publicKeyA.data(),publicKeyA.data()+DH_SESSION_KEY_SIZE,test1.payload);
-            test1.size = 16;
-            this->addToQueue(test1);
-
-
-
-            this->addToQueue(Message::fromFile("tests/rega.json"));
-            std::this_thread::sleep_for(std::chrono::seconds(10));
-
-
-
-            std::vector<uint8_t > key(16);
-            key[0] = 75;
-            key[1] = 75;
-            key[2] = 75;
-            key[3] = 75;
-            key[4] = 75;
-            key[5] = 75;
-            key[6] = 75;
-            key[7] = 75;
-            key[8] = 75;
-            key[9] = 75;
-            key[10] = 75;
-            key[11] = 75;
-            key[12] = 75;
-            key[13] = 75;
-            key[14] = 75;
-            key[15] = 75;
-
-            //todo testovanie s Jarom
-            //Encryption::decrypt(nullptr,12,key.data());
-
-            LoraPacket test2;
-            test2.frequency = 868000000;
-            test2.coderate = "4/5";
-            test2.bandwidth = 500000;
-            test2.datarate = 8;
-            test2.rfChain = 0;
-            test2.devId[0] = 65;
-            test2.devId[1] = 65;
-            test2.devId[2] = 65;
-            test2.type = DATA_UP;
-            test2.ack = MANDATORY_ACK;
-            char dataTest2[] = "ALoRaWan12CF1234";
-            dataTest2[0] = 9;
-            uint32_t *mic = (uint32_t * ) & dataTest2[12];
-            *mic = Message::createCheck((uint8_t *) dataTest2, 12);
-            Encryption::encrypt((uint8_t *) dataTest2, 16, key.data());
-            std::copy(dataTest2,dataTest2+16,test2.payload);
-            test2.size = 16;
-            this->addToQueue(test2);
-
-
-
-//            std::this_thread::sleep_for(std::chrono::seconds(6));
-//            this->addToQueue(Message::fromFile("tests/keya.json"));
-//            concentrator->testFunc();
-            this->addToQueue(Message::fromFile("tests/txl.json"));
-            std::this_thread::sleep_for(std::chrono::seconds(2));
-            concentrator->testFunc();
-
-
             oneTime = false;
-
         }
         if (!this->connection->connected && currentTime.count()-startTime.count()>CONNECTION_TIMEOUT){
             //std::cerr << "Connection timeout" << std::endl;

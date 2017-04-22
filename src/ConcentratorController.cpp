@@ -62,7 +62,7 @@ void ConcentratorController::join() {
 
     int stopStatus = lgw_stop();
     if (stopStatus == LGW_HAL_SUCCESS) {
-        std::cout << "INFO: concentrator stopped successfully" << std::endl;
+        std::cout << "INFO: concentrator stoped successfully" << std::endl;
     } else {
         std::cerr << "WARNING: failed to stop concentrator successfully" << std::endl;
     }
@@ -358,7 +358,7 @@ struct lgw_pkt_tx_s ConcentratorController::toHal(LoraPacket msg) {
     //solid settings
     out.tx_mode = IMMEDIATE;
     out.modulation = MOD_LORA;
-    out.invert_pol = false;
+    out.invert_pol = true;
     out.preamble = 8;
     //easy settings
     out.freq_hz = msg.frequency;
@@ -401,7 +401,7 @@ LoraPacket ConcentratorController::fromHal(struct lgw_pkt_rx_s msg) {
     LoraPacket out;
     std::copy(msg.payload,msg.payload + DEV_ID_SIZE,out.devId);
     uint8_t *msgType = msg.payload + DEV_ID_SIZE;
-    uint8_t lorafiitType = *msgType & LORAFIIT_TYPE_TEMP;
+    uint8_t lorafiitType = *msgType & LORAFIIT_TYPE_MASK;
     switch (lorafiitType){
         case LORAFIIT_REG_UP:
             out.type = REGISTER_UP;
@@ -424,7 +424,7 @@ LoraPacket ConcentratorController::fromHal(struct lgw_pkt_rx_s msg) {
         default:
             out.type = DATA_UP;
     }
-    uint8_t lorafiitAck = *msgType & LORAFIIT_ACK_TEMP;
+    uint8_t lorafiitAck = *msgType & LORAFIIT_ACK_MASK;
     switch (lorafiitAck){
         case LORAFIIT_NO_ACK:
             out.ack = NO_ACK;
@@ -522,63 +522,3 @@ LoraPacket ConcentratorController::fromHal(struct lgw_pkt_rx_s msg) {
     }
     return out;
 }
-
-int ConcentratorController::sendRawTest(std::string) {
-    //GETTING SENDING PARAMETERS
-    struct lgw_pkt_tx_s txpkt = DevicesTable::setTestParams();
-    //GETTING DATA
-    char message[] = "ping pong";
-    std::copy(message,message+8,txpkt.payload);
-    txpkt.size = 8;
-    uint8_t status_var;
-    do {
-        lgw_status(TX_STATUS, &status_var); /* get TX status */
-        if (status_var != TX_FREE){
-            wait_ms(5);
-        }
-    } while (status_var != TX_FREE);
-    printf("OK\n");
-
-
-    int i = lgw_send(txpkt); /* non-blocking scheduling of TX packet */
-    if (i != LGW_HAL_SUCCESS) {
-        printf("ERROR\n");
-        return -1;
-    }
-    return 0;
-}
-
-
-void ConcentratorController::testFunc() {
-    std::unique_lock<std::mutex> guard(this->queueMutex);
-    while(!serverData.empty()){
-        LoraPacket msg = serverData.front();
-        serverData.pop();
-
-        std::vector<uint8_t > key(16);
-        key[0] = 75;
-        key[1] = 75;
-        key[2] = 75;
-        key[3] = 75;
-        key[4] = 75;
-        key[5] = 75;
-        key[6] = 75;
-        key[7] = 75;
-        key[8] = 75;
-        key[9] = 75;
-        key[10] = 75;
-        key[11] = 75;
-        key[12] = 75;
-        key[13] = 75;
-        key[14] = 75;
-        key[15] = 75;
-        struct lgw_pkt_tx_s test = this->toHal(msg);
-        if (msg.type == REGISTER_DOWN){
-            Encryption::decrypt(msg.payload+16,msg.size-16,key.data());
-        }
-        else {
-            Encryption::decrypt(msg.payload,msg.size,key.data());
-        }
-    }
-}
-

@@ -157,7 +157,6 @@ void ConnectionController::process() {
             readTimeout.tv_sec = 0;
             readTimeout.tv_usec = 500000;
             int selectWait = select(socket+1, &fds, NULL, NULL, &readTimeout);
-            printf("Wau %d\n",selectWait);
         }
         else {
             //GOOD DATA

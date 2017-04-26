@@ -273,7 +273,7 @@ long DevicesTable::calculateDutyCycle(std::map<std::string, EndDevice>::iterator
     double ceil2 = 4*(iterator->second.datarate-2*dataRateOptimization);
     ceil1 = ceil(ceil1/ceil2);
     double zero = 0;
-    double numSymbols = std::max(ceil1*coderate,zero);
+    double numSymbols = 8 + std::max(ceil1*coderate,zero);
     double tPayload = numSymbols*tSym;
     return tPreamble+tPayload;
 }
@@ -304,9 +304,14 @@ bool DevicesTable::reduceDutyCycle(std::string deviceId, uint8_t messageSize) {
         if (messageTime > *currentOnAirCounter){
             return false;
         }
-        *currentOnAirCounter = *currentOnAirCounter - messageTime;
+        //reduce on all counters
+        //*currentOnAirCounter = *currentOnAirCounter - messageTime;
+        onAir0 -= messageTime;
+        onAir1 -= messageTime;
+        onAir10 -= messageTime;
         if (APP_DEBUG){
             std::cout << "debug out:" << std::endl;
+            std::cout << "reduced time:" << messageTime << std::endl;
             std::cout << "remaining time:" << *currentOnAirCounter << std::endl;
         }
         return true;

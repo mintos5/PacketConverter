@@ -17,7 +17,9 @@ void usage(){
     cout << "____________________________________" << endl;
     cout << endl;
     cout << "Aplication for receiving LoRa@FIIT packets from LoRa concentrator"
-         << "to STIOT server" << endl;
+         << "and sending it to STIOT server" << endl;
+    cout << std::endl;
+    cout << "to configure edit setr.json or config.json" << std::endl;
 }
 
 void MainApp::shutDown() {
@@ -72,26 +74,27 @@ int main(int argc, char *argv[]){
         return -1;
     }
 
-    if (concentrator->startOffline()<0){
+    if (concentrator->start()<0){
         std::cerr << "Problem starting concentrator" << std::endl;
         return -1;
     }
 
 
 
-//    if (connection->start()<0){
-//        std::cerr << "Problem starting network communication" << std::endl;
-//        signalHandler(SIGINT);
-//        //concentrator->join();
-//        converter->join();
-//    }
-//    else {
-//        connection->join();
-//        //concentrator->join();
-//        converter->join();
-//    }
-    concentrator->join();
-    converter->join();
+    if (connection->start()<0){
+        std::cerr << "Problem starting network communication" << std::endl;
+        signalHandler(SIGINT);
+        concentrator->join();
+        converter->join();
+    }
+    else {
+        connection->addToQueue(Message::createSETR("setr.json"));
+        connection->join();
+        concentrator->join();
+        converter->join();
+    }
+    //concentrator->join();
+    //converter->join();
 }
 
 bool MainApp::running;

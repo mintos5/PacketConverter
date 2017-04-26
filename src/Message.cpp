@@ -147,30 +147,8 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
         //set correct size of packaet
         out.size = totalSize + missingBytes + DH_SESSION_KEY_SIZE;
         //debuging data
-        if (APP_DEBUG){
-            std::cout << "unecrypted data:" << std::endl;
-            uint8_t *readPointer = out.payload;
-            for (int i=0;i<out.size;i++){
-                printf ("%02x ", *readPointer);
-                if( (i+1)%10 == 0){
-                    printf("\n");
-                }
-                ++readPointer;
-            }
-        }
         //encrypt data
         Encryption::encrypt(networkLength,out.size - DH_SESSION_KEY_SIZE,key);
-        if (APP_DEBUG){
-            std::cout << "ecrypted data:" << std::endl;
-            uint8_t *readPointer = out.payload;
-            for (int i=0;i<out.size;i++){
-                printf ("%02x ", *readPointer);
-                if( (i+1)%10 == 0){
-                    printf("\n");
-                }
-                ++readPointer;
-            }
-        }
     }
     else if (in.type == TXL){
         out.rfPower = in.getData().at("power");
@@ -224,17 +202,6 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
         //set correct size of packaet
         out.size = totalSize + missingBytes;
         //debuging
-        if (APP_DEBUG){
-            std::cout << "unecrypted data:" << std::endl;
-            uint8_t *readPointer = out.payload;
-            for (int i=0;i<out.size;i++){
-                printf ("%02x ", *readPointer);
-                if( (i+1)%10 == 0){
-                    printf("\n");
-                }
-                ++readPointer;
-            }
-        }
         //encrypt data
         Encryption::encrypt(networkLength,out.size,key);
     }
@@ -293,6 +260,14 @@ Message Message::createRXL(std::string devId, LoraPacket in, uint8_t *key, uint1
         if (APP_DEBUG){
             std::cout << "debug out:" << std::endl;
             std::cout << out.toStiot() << std::endl;
+            //create from base64 data
+            int messageSize= Base64::DecodedLength(dataB64);
+            std::vector<uint8_t > rawData(messageSize);
+            Message::fromBase64(dataB64,rawData.data(),messageSize);
+            for (int i=0;i<messageSize;i++){
+                std::cout << rawData[i];
+            }
+            std::cout << std::endl;
         }
     }
     else {
@@ -470,6 +445,7 @@ uint8_t Message::createNetworkData(nlohmann::json paramArray, uint8_t *data,bool
             if (param1.find("power")!= param1.end()){
                 int power = param1.at("power");
                 uint8_t reducedPower = (uint8_t) power;
+                reducedPower = reducedPower & 0x0F;
                 reducedPower = reducedPower << 4;
                 *pointer = reducedPower;
             }
@@ -594,6 +570,7 @@ uint8_t Message::createNetworkData(nlohmann::json paramArray, uint8_t *data,bool
                 *pointer = NET_PW + (typeMultiply*NET_TYPE_DIFF);
                 int power = param1.at("power");
                 uint8_t reducedPower = (uint8_t) power;
+                reducedPower = reducedPower & 0x0F;
                 *pointer += reducedPower;
                 ++pointer;
                 ++size;

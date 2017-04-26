@@ -213,7 +213,7 @@ void MessageConverter::fromStiot() {
                         }
                         std::cout << std::endl;
 
-                        std::cout << "Simon public KEY" << std::endl;
+                        std::cout << "end device public KEY" << std::endl;
                         uint8_t *simonKey = devicesTable.getDh(in.devId);
                         for (int i=0;i<16;i++){
                             //std::cout << std::hex << sessionKey[i] << std::endl;
@@ -392,17 +392,12 @@ void MessageConverter::timerFunction() {
             (std::chrono::system_clock::now().time_since_epoch());
     std::unique_lock<std::mutex> guard(this->timerMutex);
     bool oneTime = true;
-    int counter = 0;
     while (this->timerRun){
         guard.unlock();
         std::this_thread::sleep_for(std::chrono::seconds(2));
         std::chrono::seconds currentTime = std::chrono::duration_cast< std::chrono::seconds >
                 (std::chrono::system_clock::now().time_since_epoch());
         std::cout << "STATUS TIMER" << std::endl;
-//        if (counter<2){
-//            concentrator->sendRawTest("asud");
-//            counter++;
-//        }
 
         this->timerResponseMutex.lock();
         if (timerRegResponse > 0){
@@ -411,6 +406,10 @@ void MessageConverter::timerFunction() {
             std::cout << "Waiting before sending" << std::endl;
             std::this_thread::sleep_for(std::chrono::seconds(2));
             this->addToQueue(Message::fromFile("tests/rega.json"));
+//            std::this_thread::sleep_for(std::chrono::seconds(7));
+//            this->addToQueue(Message::fromFile("tests/txl.json"));
+//            std::this_thread::sleep_for(std::chrono::seconds(7));
+//            this->addToQueue(Message::fromFile("tests/txl2.json"));
         }
         else {
             this->timerResponseMutex.unlock();
@@ -421,8 +420,8 @@ void MessageConverter::timerFunction() {
             oneTime = false;
         }
         if (!this->connection->connected && currentTime.count()-startTime.count()>CONNECTION_TIMEOUT){
-            //std::cerr << "Connection timeout" << std::endl;
-            //raise(SIGINT);
+            std::cerr << "Connection timeout" << std::endl;
+            raise(SIGINT);
         }
         devicesTable.updateByTimer(currentTime);
         guard.lock();

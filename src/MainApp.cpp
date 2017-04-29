@@ -74,27 +74,33 @@ int main(int argc, char *argv[]){
         return -1;
     }
 
-    if (concentrator->start()<0){
-        std::cerr << "Problem starting concentrator" << std::endl;
-        return -1;
-    }
-
-
-
-    if (connection->start()<0){
-        std::cerr << "Problem starting network communication" << std::endl;
-        signalHandler(SIGINT);
+    if (GATEWAY_OFFLINE){
+        std::cout << "Starting gateway in offline mode" << std::endl;
+        if (concentrator->startOffline()<0){
+            std::cerr << "Problem starting concentrator" << std::endl;
+            return -1;
+        }
         concentrator->join();
         converter->join();
     }
     else {
-        connection->addToQueue(Message::createSETR("setr.json"));
-        connection->join();
-        concentrator->join();
-        converter->join();
+        if (concentrator->start()<0){
+            std::cerr << "Problem starting concentrator" << std::endl;
+            return -1;
+        }
+        if (connection->start()<0){
+            std::cerr << "Problem starting network communication" << std::endl;
+            signalHandler(SIGINT);
+            concentrator->join();
+            converter->join();
+        }
+        else {
+            connection->addToQueue(Message::createSETR("setr.json"));
+            connection->join();
+            concentrator->join();
+            converter->join();
+        }
     }
-    //concentrator->join();
-    //converter->join();
 }
 
 bool MainApp::running;

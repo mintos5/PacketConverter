@@ -419,9 +419,11 @@ void MessageConverter::timerFunction() {
             //todo tests area
             oneTime = false;
         }
-        if (!this->connection->connected && currentTime.count()-startTime.count()>CONNECTION_TIMEOUT){
-            std::cerr << "Connection timeout" << std::endl;
-            raise(SIGINT);
+        if (!GATEWAY_OFFLINE){
+            if (!this->connection->connected && currentTime.count()-startTime.count()>CONNECTION_TIMEOUT){
+                std::cerr << "Connection timeout" << std::endl;
+                raise(SIGINT);
+            }
         }
         devicesTable.updateByTimer(currentTime);
         guard.lock();

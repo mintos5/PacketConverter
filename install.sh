@@ -1,4 +1,10 @@
 #!/bin/bash
+# Check root user
+if [ $UID != 0 ]; then
+    echo "ERROR: Not root user?"
+    exit 1
+fi
+# Set what to do
 command="default"
 if [ "$#" -ge 1 ]; then
 	if [ "$1" == "daemon" ] || [ "$1" == "clear" ]; then
@@ -6,7 +12,7 @@ if [ "$#" -ge 1 ]; then
 	fi
 fi
 
-
+# do stuff
 if [ "$command" == "default" ]; then
 	echo "Locally installing to this folder:"
 	mkdir -p debug
@@ -19,19 +25,12 @@ if [ "$command" == "default" ]; then
 fi
 if [ "$command" == "daemon" ]; then
 	echo "Installing daemon service:"
-	if [ $UID != 0 ]; then
-		echo "ERROR: Not root user?"
-		exit 1
-	fi
 	cp ./packet_converter.service /lib/systemd/system/
 	systemctl enable packet_converter.service
 fi
 if [ "$command" == "clear" ]; then
 	echo "Clearing all install files:"
-	if [ $UID != 0 ]; then
-    echo "ERROR: Not root user?"
-    exit 1
-	fi
 	rm ./packet_converter
 	rm -rf ./debug/
+	systemctl disable packet_converter.service
 fi

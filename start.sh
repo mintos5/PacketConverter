@@ -1,5 +1,9 @@
 #!/bin/bash
-
+# Check root user
+if [ $UID != 0 ]; then
+    echo "ERROR: Not root user?"
+    exit 1
+fi
 # Reset iC880a PIN
 SX1301_RESET_BCM_PIN=25
 echo "$SX1301_RESET_BCM_PIN"  > /sys/class/gpio/export

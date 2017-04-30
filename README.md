@@ -4,11 +4,12 @@ Packet converter between LoRa@FIIT and STIOT protocols
 Avalaible also here: https://github.com/mintos5/PacketConverter
 
 **Instalation**
-
-Run ./install.sh script with or without parameters
-* daemon = install systemd service (run as root)
-* clear = remove all instal files (run as root)
-* without parameter install to local folder (root permission not needed)
+1. Install lora_gateway in /opt/fiitap/lora_gateway
+2. Move files to /opt/fiitap/PacketConverter
+3. Run ./install.sh as root (sudo) script with or without parameters
+* without parameter install to local folder.
+* daemon = install systemd service.
+* clear = remove all instaled files.
 
 **How to use**
 

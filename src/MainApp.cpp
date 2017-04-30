@@ -39,6 +39,7 @@ void signalHandler(int signum) {
 int main(int argc, char *argv[]){
     MainApp::running = true;
     signal(SIGINT,signalHandler);
+    signal(SIGTERM,signalHandler);
     int opt;
     while ((opt = getopt(argc,argv,"h")) != -1){
         switch (opt){

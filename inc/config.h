@@ -8,7 +8,7 @@
 #define CONNECTION_TIMEOUT 10
 //enable debug messagess
 #define APP_DEBUG true
-//enable offline
+//enable offline mode
 #define GATEWAY_OFFLINE true
 
 #endif //PACKETCONVERTER_CONFIG_H

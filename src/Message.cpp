@@ -202,6 +202,17 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
         //set correct size of packaet
         out.size = totalSize + missingBytes;
         //debuging
+//        if (APP_DEBUG){
+//            std::cout << "unecrypted data:" << std::endl;
+//            uint8_t *readPointer = out.payload;
+//            for (int i=0;i<out.size;i++){
+//                printf ("%02x ", *readPointer);
+//                if( (i+1)%10 == 0){
+//                    printf("\n");
+//                }
+//                ++readPointer;
+//            }
+//        }
         //encrypt data
         Encryption::encrypt(networkLength,out.size,key);
     }

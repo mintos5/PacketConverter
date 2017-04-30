@@ -1,0 +1,12 @@
+[Unit]
+Description=PacketConverter daemon
+
+[Service]
+WorkingDirectory=/opt/fiitap/PacketConverter
+ExecStart=/opt/fiitap/PacketConverter/start.sh
+SyslogIdentifier=packet_converter
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

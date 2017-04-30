@@ -397,22 +397,19 @@ void MessageConverter::timerFunction() {
         std::this_thread::sleep_for(std::chrono::seconds(2));
         std::chrono::seconds currentTime = std::chrono::duration_cast< std::chrono::seconds >
                 (std::chrono::system_clock::now().time_since_epoch());
-        std::cout << "STATUS TIMER" << std::endl;
 
-        this->timerResponseMutex.lock();
-        if (timerRegResponse > 0){
-            timerRegResponse--;
-            this->timerResponseMutex.unlock();
-            std::cout << "Waiting before sending" << std::endl;
-            std::this_thread::sleep_for(std::chrono::seconds(2));
-            this->addToQueue(Message::fromFile("tests/rega.json"));
-//            std::this_thread::sleep_for(std::chrono::seconds(7));
-//            this->addToQueue(Message::fromFile("tests/txl.json"));
-//            std::this_thread::sleep_for(std::chrono::seconds(7));
-//            this->addToQueue(Message::fromFile("tests/txl2.json"));
-        }
-        else {
-            this->timerResponseMutex.unlock();
+        if (GATEWAY_OFFLINE){
+            this->timerResponseMutex.lock();
+            if (timerRegResponse > 0){
+                timerRegResponse--;
+                this->timerResponseMutex.unlock();
+                std::cout << "Waiting before sending" << std::endl;
+                std::this_thread::sleep_for(std::chrono::seconds(2));
+                this->addToQueue(Message::fromFile("rega.json"));
+            }
+            else {
+                this->timerResponseMutex.unlock();
+            }
         }
 
         if (oneTime){

@@ -62,7 +62,7 @@ void ConcentratorController::join() {
 
     int stopStatus = lgw_stop();
     if (stopStatus == LGW_HAL_SUCCESS) {
-        std::cout << "INFO: concentrator stoped successfully" << std::endl;
+        std::cout << "Concentrator stoped successfully" << std::endl;
     } else {
         std::cerr << "WARNING: failed to stop concentrator successfully" << std::endl;
     }
@@ -218,7 +218,7 @@ int ConcentratorController::startConcentrator(Message param) {
 
     i = lgw_start();
     if (i == LGW_HAL_SUCCESS) {
-        std::cout << "INFO: [main] concentrator started, packet can now be received" << std::endl;
+        std::cout << "Concentrator started, packet can now be received" << std::endl;
         this->receiveRun = true;
         this->fiberReceive = std::thread(&ConcentratorController::receiveHal,this);
         this->sendRun = true;
@@ -245,7 +245,6 @@ void ConcentratorController::processStiot() {
         //here I can send testings
         if (serverData.empty()){
             sendConditional.wait(guard);
-            std::cout << "conditionVariable.unlocked" << std::endl;
         }
         while(!serverData.empty()){
             LoraPacket msg = serverData.front();
@@ -275,11 +274,16 @@ void ConcentratorController::receiveHal() {
             wait_ms(fetchSleepMs);
             continue;
         }
-        std::cout << "NEW DATA:" << std::endl;
+        if (APP_DEBUG){
+            std::cout << "NEW DATA:" << std::endl;
+        }
         std::vector<LoraPacket> vector;
         for (int i=0; i < packetsCount; ++i) {
             if (rxpkt[i].status == STAT_CRC_OK && rxpkt[i].size > 4){
                 vector.push_back(this->fromHal(rxpkt[i]));
+                if (APP_DEBUG){
+                    std::cout << "CRC and SIZE OK" << std::endl;
+                }
             }
         }
         converter->addBulk(vector);

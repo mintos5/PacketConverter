@@ -241,13 +241,13 @@ Message Message::createRXL(std::string devId, LoraPacket in, uint8_t *key, uint1
     }
     std::string ackString;
     if (in.ack==NO_ACK){
-        ackString = "NO_ACK";
+        ackString = "UNSUPPORTED";
     }
     else if (in.ack==OPTIONAL_ACK){
-        ackString = "OPTIONAL_ACK";
+        ackString = "VOLATILE";
     }
     else if (in.ack==MANDATORY_ACK){
-        ackString = "MANDATORY_ACK";
+        ackString = "MANDATORY";
     }
     data["ack"] = ackString;
 
@@ -275,6 +275,7 @@ Message Message::createRXL(std::string devId, LoraPacket in, uint8_t *key, uint1
             int messageSize= Base64::DecodedLength(dataB64);
             std::vector<uint8_t > rawData(messageSize);
             Message::fromBase64(dataB64,rawData.data(),messageSize);
+            std::cout << "app_data: ";
             for (int i=0;i<messageSize;i++){
                 std::cout << rawData[i];
             }

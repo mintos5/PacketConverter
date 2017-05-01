@@ -66,6 +66,7 @@ int ConnectionController::start() {
         return -1;
     }
     this->fiberProcess = std::thread(&ConnectionController::process,this);
+    std::cout << "Connection established" << std::endl;
     return 0;
 }
 
@@ -138,7 +139,9 @@ void ConnectionController::process() {
             //Received good data
             buffData[readReturn] = 0;
             stream << std::string(buffData);
-            std::cout << "readReturn is:" << readReturn << std::endl;
+            if (APP_DEBUG){
+                std::cout << "readReturn is:" << readReturn << std::endl;
+            }
             someData = true;
         } while(readReturn==buffSize-1);
         if(readReturn == 0){
@@ -161,7 +164,10 @@ void ConnectionController::process() {
         else {
             //GOOD DATA
             out = stream.str();
-            std::cout << out << std::endl;
+            if (APP_DEBUG){
+                std::cout << "received string:" << std::endl;
+                std::cout << out << std::endl;
+            }
             converter->addToQueue(Message::fromJsonString(out));
             //clear stream for other messages
             stream.str(std::string());

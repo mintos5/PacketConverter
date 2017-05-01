@@ -5,7 +5,7 @@ Description=PacketConverter daemon
 WorkingDirectory=/opt/fiitap/PacketConverter
 ExecStart=/opt/fiitap/PacketConverter/start.sh
 SyslogIdentifier=packet_converter
-Restart=on-failure
+Restart=always
 RestartSec=5
 
 [Install]

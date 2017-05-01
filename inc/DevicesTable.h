@@ -42,6 +42,7 @@ class DevicesTable {
 
 public:
     bool isMine(std::string deviceId);
+    bool isInTable(std::string deviceId);
     bool hasSessionKey(std::string deviceId);
     bool hasSessionKeyCheck(std::string deviceId);
 

@@ -9,6 +9,6 @@
 //enable debug messagess
 #define APP_DEBUG true
 //enable offline mode
-#define GATEWAY_OFFLINE true
+#define GATEWAY_OFFLINE false
 
 #endif //PACKETCONVERTER_CONFIG_H

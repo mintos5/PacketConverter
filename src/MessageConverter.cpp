@@ -36,7 +36,7 @@ void MessageConverter::stop() {
     std::unique_lock<std::mutex> guard3(this->timerMutex);
     this->timerRun = false;
     guard3.unlock();
-    std::cout << "CONVERTER stopped" << std::endl;
+    std::cout << "Converter thread stopped" << std::endl;
 }
 
 void MessageConverter::join() {
@@ -163,6 +163,13 @@ void MessageConverter::fromStiot() {
                         guard.lock();
                         continue;
                     }
+                    if (data["seq"].is_null() || data["key"].is_null()){
+                        if (APP_DEBUG){
+                            std::cerr << "BAD STIOT DATA" << std::endl;
+                        }
+                        guard.lock();
+                        continue;
+                    }
                     //get SEQ number from json
                     uint16_t seq = in.getData().at("seq");
                     //get base64 string with session key
@@ -242,7 +249,6 @@ void MessageConverter::fromStiot() {
                         concentrator->addToQueue(out);
                     }
                     else {
-                        //todo send error messages
                         std::cerr << "no enough time to air" << std::endl;
                     }
                 }
@@ -271,7 +277,6 @@ void MessageConverter::fromStiot() {
                             concentrator->addToQueue(out);
                         }
                         else {
-                            //todo send error messages
                             std::cerr << "no enough time to air" << std::endl;
                         }
                     }
@@ -282,7 +287,6 @@ void MessageConverter::fromStiot() {
                 }
             }
             else if (in.type==ERROR){
-                //todo handle errors, like KEYR(need to set isMine to false)
             }
         }
         guard.lock();
@@ -325,7 +329,6 @@ void MessageConverter::fromLora() {
         for (auto& element: inVector){
             std::string devId = Message::toBase64(element.devId,DEV_ID_SIZE);
             if (element.type==REGISTER_UP){
-                //todo maybe add check for correct size?
                 std::cout << "LORA REGISTER"<< std::endl;
                 this->devicesTable.addDevice(devId, element, 0);
                 connection->addToQueue(Message::createREGR(devId,element,this->devicesTable.remainingDutyCycle(devId)));
@@ -349,8 +352,17 @@ void MessageConverter::fromLora() {
                             connection->addToQueue(Message::createKEYS(devId,devicesTable.getSeq(devId),keyString));
                         }
                     }
+                    else {
+                        if (APP_DEBUG){
+                            std::cout << "BAD MIC checksum" << std::endl;
+                        }
+                    }
                 }
                 else {
+                    //device registration
+                    if (!devicesTable.isInTable(devId)){
+                        this->devicesTable.addDevice(devId, element, 0);
+                    }
                     if (devicesTable.isMine(devId)){
                         //message must be from mine end device
                         connection->addToQueue(Message::createKEYR(devId));
@@ -413,7 +425,6 @@ void MessageConverter::timerFunction() {
         }
 
         if (oneTime){
-            //todo tests area
             oneTime = false;
         }
         if (!GATEWAY_OFFLINE){

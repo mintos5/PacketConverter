@@ -150,7 +150,7 @@ int ConcentratorController::startConcentrator(Message param) {
             rfCounter++;
         }
     }
-    if (counter>1){
+    if (counter>=1){
         //position starting from 1
         position.push_back(ceil(counter/2.0)+(rfCounter*ifChainCount));
         rfCounter++;

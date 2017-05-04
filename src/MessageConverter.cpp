@@ -163,7 +163,8 @@ void MessageConverter::fromStiot() {
                         guard.lock();
                         continue;
                     }
-                    if (data["seq"].is_null() || data["key"].is_null()){
+                    std::string stringTest = in.getData().at("key");
+                    if (stringTest.empty()){
                         if (APP_DEBUG){
                             std::cerr << "BAD STIOT DATA" << std::endl;
                         }
@@ -364,7 +365,8 @@ void MessageConverter::fromLora() {
                         this->devicesTable.addDevice(devId, element, 0);
                     }
                     if (devicesTable.isMine(devId)){
-                        //message must be from mine end device
+                        //message must be from mine end device and need wait
+                        std::this_thread::sleep_for(std::chrono::seconds(1));
                         connection->addToQueue(Message::createKEYR(devId));
                         //send the message to oldData and wait for server KEYA
                         oldData.push_back(element);
@@ -376,6 +378,9 @@ void MessageConverter::fromLora() {
         std::vector<LoraPacket>::iterator historyIterator;
         historyIterator = oldData.begin();
         while (historyIterator != oldData.end()){
+            if (APP_DEBUG){
+                std::cout << "processing chached message" << std::endl;
+            }
             std::string devId = Message::toBase64(historyIterator->devId,DEV_ID_SIZE);
             if (devicesTable.hasSessionKey(devId) && devicesTable.isMine(devId)){
                 uint16_t seqNum;
@@ -385,8 +390,14 @@ void MessageConverter::fromLora() {
                     devicesTable.setSeq(devId,seqNum);
                     devicesTable.setSessionKeyCheck(devId,true);
                     outVector.push_back(out);
+                    historyIterator = oldData.erase(historyIterator);
                 }
-                historyIterator = oldData.erase(historyIterator);
+                else {
+                    if (APP_DEBUG){
+                        std::cout << "BAD MIC checksum" << std::endl;
+                    }
+                    ++historyIterator;
+                }
             }
             else {
                 ++historyIterator;

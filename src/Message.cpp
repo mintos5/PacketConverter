@@ -324,7 +324,7 @@ Message Message::createKEYS(std::string devId,uint16_t seq,std::string key) {
     out.message["message_body"] = nlohmann::json::object();
     nlohmann::json &data = out.message.at("message_body");
     data["dev_id"] = devId;
-    data["seq"] = seq;
+    data["seq"] = seq-1;
     data["key"] = key;
     if (APP_DEBUG){
         std::cout << "debug out:" << std::endl;

@@ -281,7 +281,7 @@ long DevicesTable::calculateDutyCycle(std::map<std::string, EndDevice>::iterator
     if (iterator->second.datarate == 11 || iterator->second.datarate == 12){
         dataRateOptimization = 1;
     }
-    double ceil1 = 8*payloadSize - 4*iterator->second.datarate + 28 +16 - 20;
+    double ceil1 = 8*payloadSize - 4*iterator->second.datarate + 28 +16;
     double ceil2 = 4*(iterator->second.datarate-2*dataRateOptimization);
     ceil1 = ceil(ceil1/ceil2);
     double zero = 0;

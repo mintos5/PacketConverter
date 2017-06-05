@@ -75,7 +75,7 @@ public:
 
     static LoraPacket fromStiot(Message in,uint8_t *key, uint16_t &seq);
 
-    static Message createRXL(std::string devId, LoraPacket in, uint8_t *key, uint16_t &seq, unsigned int dutyC);
+    static Message createRXL(std::string devId, LoraPacket in, uint8_t *key, uint16_t &seq, long dutyC);
     static Message createREGR(std::string devId,LoraPacket in, unsigned int dutyC);
     static Message createSETR(std::string setrFile);
     static Message createKEYS(std::string devId,uint16_t seq,std::string key);

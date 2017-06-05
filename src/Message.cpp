@@ -219,7 +219,7 @@ LoraPacket Message::fromStiot(Message in,uint8_t *key, uint16_t &seq) {
     return out;
 }
 
-Message Message::createRXL(std::string devId, LoraPacket in, uint8_t *key, uint16_t &seq, unsigned int dutyC) {
+Message Message::createRXL(std::string devId, LoraPacket in, uint8_t *key, uint16_t &seq, long dutyC) {
     Message out;
     out.type = RXL;
     out.message["message_name"] = "RXL";

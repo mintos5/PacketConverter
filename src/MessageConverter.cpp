@@ -310,21 +310,15 @@ void MessageConverter::fromLora() {
         if (this->fromLoraData.empty()){
             if (this->getFromLoraData(in,guardData)){
                 inVector.push_back(in);
-                if (APP_DEBUG){
-                    std::cout << "NEW LORA data (IF)" << std::endl;
-                }
             }
         }
         while (!this->fromLoraData.empty()){
-            if (APP_DEBUG){
-                std::cout << "NEW LORA data (while)" << std::endl;
-            }
             if (this->getFromLoraData(in,guardData)){
                 inVector.push_back(in);
             }
         }
         if (APP_DEBUG){
-            std::cout << "END OF while in fromLora"<< std::endl;
+            std::cout << "Processing new LoRaFiit messages"<< std::endl;
         }
         //process new LoRaFIIT msg
         for (auto& element: inVector){
@@ -360,7 +354,7 @@ void MessageConverter::fromLora() {
                     }
                 }
                 else {
-                    //device registration
+                    //add device without REGR message (registration)
                     if (!devicesTable.isInTable(devId)){
                         this->devicesTable.addDevice(devId, element, 0);
                     }
@@ -379,7 +373,7 @@ void MessageConverter::fromLora() {
         historyIterator = oldData.begin();
         while (historyIterator != oldData.end()){
             if (APP_DEBUG){
-                std::cout << "processing chached message" << std::endl;
+                std::cout << "processing cached message" << std::endl;
             }
             std::string devId = Message::toBase64(historyIterator->devId,DEV_ID_SIZE);
             if (devicesTable.hasSessionKey(devId) && devicesTable.isMine(devId)){
@@ -394,9 +388,9 @@ void MessageConverter::fromLora() {
                 }
                 else {
                     if (APP_DEBUG){
-                        std::cout << "BAD MIC checksum" << std::endl;
+                        std::cout << "BAD MIC checksum, removing old message" << std::endl;
                     }
-                    ++historyIterator;
+                    historyIterator = oldData.erase(historyIterator);
                 }
             }
             else {

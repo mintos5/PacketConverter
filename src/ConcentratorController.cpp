@@ -274,9 +274,6 @@ void ConcentratorController::receiveHal() {
             wait_ms(fetchSleepMs);
             continue;
         }
-        if (APP_DEBUG){
-            std::cout << "NEW DATA:" << std::endl;
-        }
         std::vector<LoraPacket> vector;
         for (int i=0; i < packetsCount; ++i) {
             if (rxpkt[i].status == STAT_CRC_OK && rxpkt[i].size > 4){

@@ -139,9 +139,6 @@ void ConnectionController::process() {
             //Received good data
             buffData[readReturn] = 0;
             stream << std::string(buffData);
-            if (APP_DEBUG){
-                std::cout << "readReturn is:" << readReturn << std::endl;
-            }
             someData = true;
         } while(readReturn==buffSize-1);
         if(readReturn == 0){

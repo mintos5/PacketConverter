@@ -316,8 +316,9 @@ bool DevicesTable::reduceDutyCycle(std::string deviceId, uint8_t messageSize) {
         if (messageTime > *currentOnAirCounter){
             return false;
         }
-        //reduce on all counters
+        //uncomment line below for bigger time on air
         //*currentOnAirCounter = *currentOnAirCounter - messageTime;
+        //reduce on all counters for better compatibility with end devices (comment for bigger time on air)
         onAir0 -= messageTime;
         onAir1 -= messageTime;
         onAir10 -= messageTime;
